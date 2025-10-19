@@ -10,8 +10,18 @@ const firebaseConfig = {
     appId: "1:363846734339:web:a27ac4eb966ed56442b436"
 };
 
-// Inicialización de 'db' con un valor por defecto
+// Inicialización de 'db'
 let db = null; 
+
+// Función auxiliar para formatear la fecha y hora
+function formatNoteTimestamp(timestamp) {
+    if (timestamp && timestamp.toDate) {
+        const date = timestamp.toDate();
+        const options = { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' };
+        return date.toLocaleDateString('es-MX', options);
+    }
+    return 'Sin fecha';
+}
 
 // =================================================================
 // Clase Principal de la Aplicación
@@ -19,32 +29,29 @@ let db = null;
 class NotesApp {
     constructor() {
         this.notes = [];
+        this.saveBtn = document.getElementById('saveNoteBtn'); // Referencia al botón
         this.init();
     }
 
     init() {
         this.setupEventListeners();
-        // Llamamos al método de escucha en tiempo real
         this.loadNotes(); 
     }
 
     setupEventListeners() {
-        // Botón nueva nota
+        // ... (Mantenemos los mismos listeners)
         document.getElementById('addNoteBtn').addEventListener('click', () => {
             this.openModal();
         });
 
-        // Botón guardar nota
-        document.getElementById('saveNoteBtn').addEventListener('click', () => {
+        this.saveBtn.addEventListener('click', () => {
             this.saveNote();
         });
 
-        // Cerrar modal
         document.querySelector('.close').addEventListener('click', () => {
             this.closeModal();
         });
 
-        // Cerrar modal al hacer clic fuera
         window.addEventListener('click', (e) => {
             const modal = document.getElementById('noteModal');
             if (e.target === modal) {
@@ -61,6 +68,10 @@ class NotesApp {
         document.getElementById('noteTitle').value = '';
         document.getElementById('noteContent').value = '';
         
+        // Asegurar que el botón de guardar esté habilitado y con texto normal
+        this.saveBtn.disabled = false;
+        this.saveBtn.textContent = 'Guardar Nota';
+
         // Enfocar el título
         setTimeout(() => {
             document.getElementById('noteTitle').focus();
@@ -81,31 +92,36 @@ class NotesApp {
             return;
         }
 
+        // 🟢 MEJORA UX: Feedback visual al guardar
+        this.saveBtn.disabled = true;
+        this.saveBtn.textContent = 'Guardando...';
+
         try {
-            // Guardar en Firebase
             await db.collection('notes').add({
                 title: title,
                 content: content,
                 // Usamos la marca de tiempo del servidor para ordenar correctamente
                 timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-                date: new Date().toLocaleDateString('es-MX')
+                // Eliminamos 'date' simple, usaremos 'timestamp' para el display
             });
 
-            // Solo cerramos el modal. onSnapshot se encarga de la recarga.
+            // Si fue exitoso
             this.closeModal();
             
         } catch (error) {
             console.error('Error guardando nota:', error);
             alert('Error al guardar: ' + error.message);
+            // Revertir el estado del botón en caso de error
+            this.saveBtn.disabled = false;
+            this.saveBtn.textContent = 'Guardar Nota';
         }
     }
 
     // Método de escucha en tiempo real (onSnapshot)
     loadNotes() {
-        // Importante: 'db' ya está garantizado como inicializado por el bloque de abajo.
         db.collection('notes')
             .orderBy('timestamp', 'desc')
-            .onSnapshot(snapshot => { // Esto se ejecuta en cada cambio
+            .onSnapshot(snapshot => {
                 
                 this.notes = snapshot.docs.map(doc => ({
                     id: doc.id,
@@ -131,7 +147,7 @@ class NotesApp {
                 <h3>${this.escapeHtml(note.title)}</h3>
                 <p>${this.escapeHtml(note.content)}</p>
                 <div class="note-meta">
-                    <small>${note.date || 'Hoy'}</small>
+                    <small>${formatNoteTimestamp(note.timestamp)}</small>
                 </div>
                 <div class="note-actions">
                     <button class="delete-btn" onclick="app.deleteNote('${note.id}')">Eliminar</button>
@@ -143,7 +159,6 @@ class NotesApp {
     async deleteNote(noteId) {
         if (confirm('¿Eliminar esta nota?')) {
             try {
-                // onSnapshot se encarga de la recarga automática después de la eliminación.
                 await db.collection('notes').doc(noteId).delete();
             } catch (error) {
                 alert('Error eliminando nota: ' + error.message);
@@ -159,18 +174,17 @@ class NotesApp {
 }
 
 // =================================================================
-// INICIO DE LA APLICACIÓN (CORRECCIÓN CLAVE)
+// INICIO DE LA APLICACIÓN
 // =================================================================
 document.addEventListener('DOMContentLoaded', function() {
-    // Inicializar Firebase de forma segura y garantizar el orden de ejecución
     if (typeof firebase !== 'undefined' && firebase.firestore) {
         try {
-            // 1. Inicializar Firebase App
             firebase.initializeApp(firebaseConfig);
-            // 2. Obtener la referencia a Firestore
             db = firebase.firestore(); 
             
-            // 3. SOLO AHORA, iniciamos la aplicación
+            // Refuerzo para usar ServerTimestamp
+            db.settings({ timestampsInSnapshots: true });
+
             window.app = new NotesApp();
         } catch (error) {
             console.error("Error al inicializar Firebase o Firestore:", error);
