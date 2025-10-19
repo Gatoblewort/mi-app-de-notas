@@ -3,7 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mis Notas</title>
+    
+    <!-- Meta Tags para Android -->
+    <meta name="theme-color" content="#4CAF50">
+    <meta name="description" content="Aplicación de notas personales - Guarda tus ideas en cualquier dispositivo">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="HandheldFriendly" content="true">
+    <meta name="format-detection" content="telephone=no">
+    
+    <!-- Meta Tags para Windows -->
+    <meta name="msapplication-TileColor" content="#4CAF50">
+    <meta name="msapplication-TileImage" content="icon-144.png">
+    <meta name="msapplication-config" content="none">
+    <meta name="application-name" content="Mis Notas App">
+    
+    <!-- Meta Tags Generales PWA -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    
+    <title>Mis Notas App</title>
     <link rel="stylesheet" href="style.css">
     <link rel="manifest" href="manifest.json">
 </head>
@@ -15,9 +34,11 @@
         </header>
         
         <div class="notes-container" id="notesContainer">
-            </div>
+            <!-- Las notas se agregarán aquí dinámicamente -->
+        </div>
     </div>
 
+    <!-- Modal para crear/editar notas -->
     <div id="noteModal" class="modal">
         <div class="modal-content">
             <span class="close">&times;</span>
@@ -41,9 +62,9 @@
         </div>
     </div>
 
+    <!-- Firebase -->
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-storage.js"></script>
     <script src="app.js"></script>
 </body>
 </html>
