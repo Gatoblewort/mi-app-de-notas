@@ -1,5 +1,5 @@
 // =================================================================
-// Configuración de Firebase (Asegúrate de que esta sea tu configuración real)
+// Configuración de Firebase
 // =================================================================
 const firebaseConfig = {
     apiKey: "AIzaSyAom3LUnJQWK8t9h0G1mftIvClyPDiG1A",
@@ -11,6 +11,8 @@ const firebaseConfig = {
 };
 
 let db = null; 
+// 🟢 NUEVO: Inicialización de Firebase Storage
+let storage = null; 
 
 // Función auxiliar para formatear la fecha y hora
 function formatNoteTimestamp(timestamp) {
@@ -29,15 +31,35 @@ function formatNoteTimestamp(timestamp) {
     return date.toLocaleDateString('es-MX', options);
 }
 
+// 🟢 NUEVA FUNCIÓN: Subir archivo a Firebase Storage
+async function uploadFile(file) {
+    if (!file || !storage) {
+        return null;
+    }
+
+    // Crea una referencia única para el archivo
+    const uniqueId = Date.now() + '-' + file.name;
+    const storageRef = storage.ref('notes_images/' + uniqueId);
+
+    // Sube el archivo
+    const snapshot = await storageRef.put(file);
+    
+    // Obtiene la URL de descarga
+    const downloadURL = await snapshot.ref.getDownloadURL();
+    
+    return downloadURL;
+}
+
 // =================================================================
-// Clase Principal de la Aplicación (CON EDICIÓN)
+// Clase Principal de la Aplicación (CON IMÁGENES)
 // =================================================================
 class NotesApp {
     constructor() {
         this.notes = [];
         this.saveBtn = document.getElementById('saveNoteBtn'); 
         this.modalTitle = document.querySelector('#noteModal h2'); 
-        this.editingId = null; // ID de la nota que se está editando (null si es nueva)
+        this.imageInput = document.getElementById('noteImage'); // 🟢 Referencia al input de archivo
+        this.editingId = null; 
         this.init();
     }
 
@@ -47,17 +69,14 @@ class NotesApp {
     }
 
     setupEventListeners() {
-        // Botón Nueva Nota
         document.getElementById('addNoteBtn').addEventListener('click', () => {
             this.openModal();
         });
 
-        // Botón Guardar/Actualizar
         this.saveBtn.addEventListener('click', () => {
             this.saveNote();
         });
 
-        // Cerrar Modal (X y Clic fuera)
         document.querySelector('.close').addEventListener('click', () => {
             this.closeModal();
         });
@@ -69,7 +88,6 @@ class NotesApp {
             }
         });
         
-        // Listener de Colores
         document.querySelectorAll('.color-option').forEach(option => {
             option.addEventListener('click', (e) => {
                 this.selectColor(e.target);
@@ -77,7 +95,6 @@ class NotesApp {
         });
     }
 
-    // Prepara el modal para editar una nota existente
     editNote(noteId) {
         const noteToEdit = this.notes.find(note => note.id === noteId);
         if (noteToEdit) {
@@ -92,16 +109,16 @@ class NotesApp {
         selectedElement.classList.add('active');
     }
 
-    // Abre el modal y carga datos si se pasa una nota
     openModal(note = null) {
         const modal = document.getElementById('noteModal');
         modal.style.display = 'block';
         
-        // 1. Limpiar/Cargar campos
+        // Limpiar/Cargar campos
         document.getElementById('noteTitle').value = note ? note.title : '';
         document.getElementById('noteContent').value = note ? note.content : '';
+        this.imageInput.value = ''; // 🟢 Limpiar input de archivo
         
-        // 2. Lógica de Edición vs. Creación
+        // Lógica de Edición vs. Creación
         if (note) {
             this.editingId = note.id;
             this.modalTitle.textContent = 'Editar Nota';
@@ -112,7 +129,7 @@ class NotesApp {
             this.saveBtn.textContent = 'Guardar Nota';
         }
 
-        // 3. Cargar Color
+        // Cargar Color
         document.querySelectorAll('.color-option').forEach(option => {
             option.classList.remove('active');
             const colorToSelect = note ? note.color : 'white';
@@ -133,10 +150,10 @@ class NotesApp {
         this.editingId = null; 
     }
 
-    // Decide si crear (add) o actualizar (update)
     async saveNote() {
         const title = document.getElementById('noteTitle').value.trim();
         const content = document.getElementById('noteContent').value.trim();
+        const imageFile = this.imageInput.files[0]; // 🟢 Obtener el archivo
 
         if (!title || !content) {
             alert('Por favor, escribe un título y contenido');
@@ -150,11 +167,26 @@ class NotesApp {
         this.saveBtn.textContent = this.editingId ? 'Actualizando...' : 'Guardando...';
 
         try {
+            let imageUrl = null;
+
+            // 🟢 Paso 1: Subir la imagen si existe
+            if (imageFile) {
+                imageUrl = await uploadFile(imageFile);
+            }
+
             const data = {
                 title: title,
                 content: content,
                 color: color,
+                // Solo añadir la URL si se subió o si ya existía (en el caso de edición,
+                // se mantendría la URL antigua si no se sube una nueva)
+                ...(imageUrl && { imageUrl: imageUrl }) 
             };
+            
+            // Si estás editando y no subiste una nueva imagen, no sobrescribas imageUrl
+            if (this.editingId && !imageFile) {
+                // No hacemos nada, simplemente mantenemos la URL anterior en Firestore
+            }
 
             if (this.editingId) {
                 // ACTUALIZAR (Editar)
@@ -168,8 +200,8 @@ class NotesApp {
             this.closeModal();
             
         } catch (error) {
-            console.error(this.editingId ? 'Error actualizando nota:' : 'Error guardando nota:', error);
-            alert('Error: ' + error.message);
+            console.error(this.editingId ? 'Error actualizando nota con imagen:' : 'Error guardando nota con imagen:', error);
+            alert('Error al guardar la nota. Revisa la consola para más detalles.');
             
             this.saveBtn.disabled = false;
             this.saveBtn.textContent = this.editingId ? 'Actualizar Nota' : 'Guardar Nota';
@@ -177,7 +209,6 @@ class NotesApp {
     }
 
     loadNotes() {
-        // Escucha en tiempo real (onSnapshot)
         db.collection('notes')
             .orderBy('timestamp', 'desc')
             .onSnapshot(snapshot => {
@@ -194,7 +225,7 @@ class NotesApp {
             });
     }
 
-    // Renderiza las notas con los botones de Editar y Eliminar
+    // Renderiza las notas con la imagen (si existe)
     displayNotes() {
         const container = document.getElementById('notesContainer');
         
@@ -207,6 +238,9 @@ class NotesApp {
             <div class="note ${note.color}">
                 <h3>${this.escapeHtml(note.title)}</h3>
                 <p>${this.escapeHtml(note.content)}</p>
+                
+                ${note.imageUrl ? `<img src="${note.imageUrl}" alt="Imagen de la nota" class="note-image">` : ''}
+                
                 <div class="note-meta">
                     <small>${formatNoteTimestamp(note.timestamp)}</small>
                 </div>
@@ -221,6 +255,7 @@ class NotesApp {
     async deleteNote(noteId) {
         if (confirm('¿Eliminar esta nota?')) {
             try {
+                // Opcional: Implementar la eliminación del archivo de Storage aquí
                 await db.collection('notes').doc(noteId).delete();
             } catch (error) {
                 alert('Error eliminando nota: ' + error.message);
@@ -239,10 +274,11 @@ class NotesApp {
 // INICIO DE LA APLICACIÓN
 // =================================================================
 document.addEventListener('DOMContentLoaded', function() {
-    if (typeof firebase !== 'undefined' && firebase.firestore) {
+    if (typeof firebase !== 'undefined' && firebase.firestore && firebase.storage) {
         try {
             firebase.initializeApp(firebaseConfig);
             db = firebase.firestore(); 
+            storage = firebase.storage(); // 🟢 Inicializar Storage aquí
             db.settings({ timestampsInSnapshots: true }); 
 
             window.app = new NotesApp();
