@@ -13,23 +13,42 @@ const firebaseConfig = {
 // Inicialización de 'db'
 let db = null; 
 
-// Función auxiliar para formatear la fecha y hora
+// =================================================================
+// Función auxiliar: Corregida para manejar diferentes estados del Timestamp
+// =================================================================
 function formatNoteTimestamp(timestamp) {
-    if (timestamp && timestamp.toDate) {
-        const date = timestamp.toDate();
-        const options = { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' };
-        return date.toLocaleDateString('es-MX', options);
+    if (!timestamp) {
+        return 'Sin fecha';
     }
-    return 'Sin fecha';
+
+    let date;
+    
+    // Intenta usar el método .toDate() si está disponible (típico de Firestore)
+    if (typeof timestamp.toDate === 'function') {
+        date = timestamp.toDate();
+    } 
+    // Si no es un objeto Timestamp de Firestore (a veces es solo un Date o null)
+    else if (timestamp instanceof Date) {
+        date = timestamp;
+    } 
+    // Maneja el caso en que el servidor aún no ha escrito el timestamp (está 'pendiente')
+    else {
+        return 'Guardando...'; 
+    }
+
+    const options = { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' };
+    return date.toLocaleDateString('es-MX', options);
 }
 
 // =================================================================
 // Clase Principal de la Aplicación
+// (El resto del código dentro de la clase es correcto y se mantiene)
 // =================================================================
 class NotesApp {
     constructor() {
         this.notes = [];
-        this.saveBtn = document.getElementById('saveNoteBtn'); // Referencia al botón
+        // Nos aseguramos de tener la referencia al botón desde el inicio
+        this.saveBtn = document.getElementById('saveNoteBtn'); 
         this.init();
     }
 
@@ -39,19 +58,22 @@ class NotesApp {
     }
 
     setupEventListeners() {
-        // ... (Mantenemos los mismos listeners)
+        // Botón nueva nota
         document.getElementById('addNoteBtn').addEventListener('click', () => {
             this.openModal();
         });
 
+        // Botón guardar nota
         this.saveBtn.addEventListener('click', () => {
             this.saveNote();
         });
 
+        // Cerrar modal
         document.querySelector('.close').addEventListener('click', () => {
             this.closeModal();
         });
 
+        // Cerrar modal al hacer clic fuera
         window.addEventListener('click', (e) => {
             const modal = document.getElementById('noteModal');
             if (e.target === modal) {
@@ -92,7 +114,7 @@ class NotesApp {
             return;
         }
 
-        // 🟢 MEJORA UX: Feedback visual al guardar
+        // Feedback visual al guardar
         this.saveBtn.disabled = true;
         this.saveBtn.textContent = 'Guardando...';
 
@@ -100,12 +122,10 @@ class NotesApp {
             await db.collection('notes').add({
                 title: title,
                 content: content,
-                // Usamos la marca de tiempo del servidor para ordenar correctamente
+                // Usamos la marca de tiempo del servidor
                 timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-                // Eliminamos 'date' simple, usaremos 'timestamp' para el display
             });
 
-            // Si fue exitoso
             this.closeModal();
             
         } catch (error) {
@@ -182,8 +202,8 @@ document.addEventListener('DOMContentLoaded', function() {
             firebase.initializeApp(firebaseConfig);
             db = firebase.firestore(); 
             
-            // Refuerzo para usar ServerTimestamp
-            db.settings({ timestampsInSnapshots: true });
+            // Esta configuración es crucial al usar serverTimestamp()
+            db.settings({ timestampsInSnapshots: true }); 
 
             window.app = new NotesApp();
         } catch (error) {
