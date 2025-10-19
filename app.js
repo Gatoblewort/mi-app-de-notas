@@ -1,10 +1,22 @@
 // =================================================================
-// Función auxiliar para formatear la fecha y hora (Se mantiene igual)
+// Configuración de Firebase (Asegúrate de que esta sea tu configuración real)
 // =================================================================
+const firebaseConfig = {
+    apiKey: "AIzaSyAom3LUnJQWK8t9h0G1mftIvClyPDiG1A",
+    authDomain: "mis-notas-app-e87a2.firebaseapp.com",
+    projectId: "mis-notas-app-e87a2",
+    storageBucket: "mis-notas-app-e87a2.firebasestorage.app",
+    messagingSenderId: "363846734339",
+    appId: "1:363846734339:web:a27ac4eb966ed56442b436"
+};
+
+let db = null; 
+
+// Función auxiliar para formatear la fecha y hora
 function formatNoteTimestamp(timestamp) {
-    // ... (Mantener la función formatNoteTimestamp que te di en la respuesta anterior) ...
     if (!timestamp) { return 'Sin fecha'; }
     let date;
+    
     if (typeof timestamp.toDate === 'function') {
         date = timestamp.toDate();
     } else if (timestamp instanceof Date) {
@@ -12,17 +24,20 @@ function formatNoteTimestamp(timestamp) {
     } else {
         return 'Guardando...'; 
     }
+
     const options = { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' };
     return date.toLocaleDateString('es-MX', options);
 }
 
 // =================================================================
-// Clase Principal de la Aplicación (Modificada)
+// Clase Principal de la Aplicación (CON EDICIÓN)
 // =================================================================
 class NotesApp {
     constructor() {
         this.notes = [];
         this.saveBtn = document.getElementById('saveNoteBtn'); 
+        this.modalTitle = document.querySelector('#noteModal h2'); 
+        this.editingId = null; // ID de la nota que se está editando (null si es nueva)
         this.init();
     }
 
@@ -32,15 +47,17 @@ class NotesApp {
     }
 
     setupEventListeners() {
-        // ... (Listeners de botones y modal se mantienen) ...
+        // Botón Nueva Nota
         document.getElementById('addNoteBtn').addEventListener('click', () => {
             this.openModal();
         });
 
+        // Botón Guardar/Actualizar
         this.saveBtn.addEventListener('click', () => {
             this.saveNote();
         });
 
+        // Cerrar Modal (X y Clic fuera)
         document.querySelector('.close').addEventListener('click', () => {
             this.closeModal();
         });
@@ -52,7 +69,7 @@ class NotesApp {
             }
         });
         
-        // 🟢 NUEVO LISTENER: Selección de colores
+        // Listener de Colores
         document.querySelectorAll('.color-option').forEach(option => {
             option.addEventListener('click', (e) => {
                 this.selectColor(e.target);
@@ -60,36 +77,51 @@ class NotesApp {
         });
     }
 
-    // 🟢 NUEVA FUNCIÓN: Maneja la selección de color
+    // Prepara el modal para editar una nota existente
+    editNote(noteId) {
+        const noteToEdit = this.notes.find(note => note.id === noteId);
+        if (noteToEdit) {
+            this.openModal(noteToEdit);
+        }
+    }
+
     selectColor(selectedElement) {
-        // 1. Quitar la clase 'active' de todos los colores
         document.querySelectorAll('.color-option').forEach(option => {
             option.classList.remove('active');
         });
-        // 2. Añadir la clase 'active' solo al elemento seleccionado
         selectedElement.classList.add('active');
     }
 
-    openModal() {
+    // Abre el modal y carga datos si se pasa una nota
+    openModal(note = null) {
         const modal = document.getElementById('noteModal');
         modal.style.display = 'block';
         
-        // Limpiar campos
-        document.getElementById('noteTitle').value = '';
-        document.getElementById('noteContent').value = '';
+        // 1. Limpiar/Cargar campos
+        document.getElementById('noteTitle').value = note ? note.title : '';
+        document.getElementById('noteContent').value = note ? note.content : '';
         
-        this.saveBtn.disabled = false;
-        this.saveBtn.textContent = 'Guardar Nota';
+        // 2. Lógica de Edición vs. Creación
+        if (note) {
+            this.editingId = note.id;
+            this.modalTitle.textContent = 'Editar Nota';
+            this.saveBtn.textContent = 'Actualizar Nota';
+        } else {
+            this.editingId = null; 
+            this.modalTitle.textContent = 'Nueva Nota';
+            this.saveBtn.textContent = 'Guardar Nota';
+        }
 
-        // 🟢 NUEVA LÓGICA: Establecer el color predeterminado (white) como activo
+        // 3. Cargar Color
         document.querySelectorAll('.color-option').forEach(option => {
             option.classList.remove('active');
-            if (option.dataset.color === 'white') {
+            const colorToSelect = note ? note.color : 'white';
+            if (option.dataset.color === colorToSelect) {
                 option.classList.add('active');
             }
         });
 
-        // Enfocar el título
+        this.saveBtn.disabled = false;
         setTimeout(() => {
             document.getElementById('noteTitle').focus();
         }, 100);
@@ -98,8 +130,10 @@ class NotesApp {
     closeModal() {
         const modal = document.getElementById('noteModal');
         modal.style.display = 'none';
+        this.editingId = null; 
     }
 
+    // Decide si crear (add) o actualizar (update)
     async saveNote() {
         const title = document.getElementById('noteTitle').value.trim();
         const content = document.getElementById('noteContent').value.trim();
@@ -109,39 +143,47 @@ class NotesApp {
             return;
         }
 
-        // 🟢 NUEVA LÓGICA: Obtener el color seleccionado
         const selectedColorElement = document.querySelector('.color-selector .active');
         const color = selectedColorElement ? selectedColorElement.dataset.color : 'white';
 
         this.saveBtn.disabled = true;
-        this.saveBtn.textContent = 'Guardando...';
+        this.saveBtn.textContent = this.editingId ? 'Actualizando...' : 'Guardando...';
 
         try {
-            await db.collection('notes').add({
+            const data = {
                 title: title,
                 content: content,
-                color: color, // 🟢 Guardamos el color en Firebase
-                timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-            });
+                color: color,
+            };
+
+            if (this.editingId) {
+                // ACTUALIZAR (Editar)
+                await db.collection('notes').doc(this.editingId).update(data);
+            } else {
+                // CREAR (Nueva Nota)
+                data.timestamp = firebase.firestore.FieldValue.serverTimestamp();
+                await db.collection('notes').add(data);
+            }
 
             this.closeModal();
             
         } catch (error) {
-            console.error('Error guardando nota:', error);
-            alert('Error al guardar: ' + error.message);
+            console.error(this.editingId ? 'Error actualizando nota:' : 'Error guardando nota:', error);
+            alert('Error: ' + error.message);
+            
             this.saveBtn.disabled = false;
-            this.saveBtn.textContent = 'Guardar Nota';
+            this.saveBtn.textContent = this.editingId ? 'Actualizar Nota' : 'Guardar Nota';
         }
     }
 
     loadNotes() {
+        // Escucha en tiempo real (onSnapshot)
         db.collection('notes')
             .orderBy('timestamp', 'desc')
             .onSnapshot(snapshot => {
                 
                 this.notes = snapshot.docs.map(doc => ({
                     id: doc.id,
-                    // Aseguramos que el color tenga un valor por defecto si no existe
                     color: doc.data().color || 'white', 
                     ...doc.data() 
                 }));
@@ -152,6 +194,7 @@ class NotesApp {
             });
     }
 
+    // Renderiza las notas con los botones de Editar y Eliminar
     displayNotes() {
         const container = document.getElementById('notesContainer');
         
@@ -168,13 +211,13 @@ class NotesApp {
                     <small>${formatNoteTimestamp(note.timestamp)}</small>
                 </div>
                 <div class="note-actions">
+                    <button class="edit-btn" onclick="app.editNote('${note.id}')">Editar</button>
                     <button class="delete-btn" onclick="app.deleteNote('${note.id}')">Eliminar</button>
                 </div>
             </div>
         `).join('');
     }
 
-    // ... (deleteNote, escapeHtml y el Bloque de Inicio se mantienen iguales) ...
     async deleteNote(noteId) {
         if (confirm('¿Eliminar esta nota?')) {
             try {
@@ -193,21 +236,11 @@ class NotesApp {
 }
 
 // =================================================================
-// INICIO DE LA APLICACIÓN (Se mantiene igual)
+// INICIO DE LA APLICACIÓN
 // =================================================================
 document.addEventListener('DOMContentLoaded', function() {
     if (typeof firebase !== 'undefined' && firebase.firestore) {
         try {
-            // ... (Bloque de inicialización de Firebase se mantiene igual) ...
-            const firebaseConfig = {
-                apiKey: "AIzaSyAom3LUnJQWK8t9h0G1mftIvClyPDiG1A",
-                authDomain: "mis-notas-app-e87a2.firebaseapp.com",
-                projectId: "mis-notas-app-e87a2",
-                storageBucket: "mis-notas-app-e87a2.firebasestorage.app",
-                messagingSenderId: "363846734339",
-                appId: "1:363846734339:web:a27ac4eb966ed56442b436"
-            };
-
             firebase.initializeApp(firebaseConfig);
             db = firebase.firestore(); 
             db.settings({ timestampsInSnapshots: true }); 
