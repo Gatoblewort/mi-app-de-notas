@@ -8,29 +8,41 @@ const firebaseConfig = {
     appId: "1:363846734339:web:a27ac4eb966ed56442b436"
 };
 
-// Inicializar Firebase
-if (!firebase.apps.length) {
+// Inicializar Firebase de forma segura
+if (typeof firebase !== 'undefined') {
     firebase.initializeApp(firebaseConfig);
+    var db = firebase.firestore();
+} else {
+    console.error("Firebase no está cargado");
 }
-const db = firebase.firestore();
 
 class NotesApp {
     constructor() {
         this.notes = [];
-        this.currentEditIndex = null;
         this.init();
     }
 
     init() {
-        this.bindEvents();
-        this.loadNotesFromFirebase();
+        this.setupEventListeners();
+        this.loadNotes();
     }
 
-    bindEvents() {
-        document.getElementById('addNoteBtn').addEventListener('click', () => this.openModal());
-        document.getElementById('saveNoteBtn').addEventListener('click', () => this.saveNote());
-        document.querySelector('.close').addEventListener('click', () => this.closeModal());
-        
+    setupEventListeners() {
+        // Botón nueva nota
+        document.getElementById('addNoteBtn').addEventListener('click', () => {
+            this.openModal();
+        });
+
+        // Botón guardar nota
+        document.getElementById('saveNoteBtn').addEventListener('click', () => {
+            this.saveNote();
+        });
+
+        // Cerrar modal
+        document.querySelector('.close').addEventListener('click', () => {
+            this.closeModal();
+        });
+
         // Cerrar modal al hacer clic fuera
         window.addEventListener('click', (e) => {
             const modal = document.getElementById('noteModal');
@@ -40,49 +52,23 @@ class NotesApp {
         });
     }
 
-    async loadNotesFromFirebase() {
-        try {
-            console.log("Cargando notas desde Firebase...");
-            const snapshot = await db.collection('notes').orderBy('timestamp', 'desc').get();
-            this.notes = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            }));
-            console.log("Notas cargadas:", this.notes);
-            this.renderNotes();
-        } catch (error) {
-            console.error('Error cargando notas:', error);
-            alert('Error al cargar notas: ' + error.message);
-        }
-    }
-
-    openModal(editIndex = null) {
-        this.currentEditIndex = editIndex;
+    openModal() {
         const modal = document.getElementById('noteModal');
-        const modalTitle = document.getElementById('modalTitle');
-        const titleInput = document.getElementById('noteTitle');
-        const contentInput = document.getElementById('noteContent');
-
-        if (editIndex !== null) {
-            modalTitle.textContent = 'Editar Nota';
-            const note = this.notes[editIndex];
-            titleInput.value = note.title || '';
-            contentInput.value = note.content || '';
-        } else {
-            modalTitle.textContent = 'Nueva Nota';
-            titleInput.value = '';
-            contentInput.value = '';
-        }
-
         modal.style.display = 'block';
         
-        // Enfocar el campo de título
-        setTimeout(() => titleInput.focus(), 100);
+        // Limpiar campos
+        document.getElementById('noteTitle').value = '';
+        document.getElementById('noteContent').value = '';
+        
+        // Enfocar el título
+        setTimeout(() => {
+            document.getElementById('noteTitle').focus();
+        }, 100);
     }
 
     closeModal() {
-        document.getElementById('noteModal').style.display = 'none';
-        this.currentEditIndex = null;
+        const modal = document.getElementById('noteModal');
+        modal.style.display = 'none';
     }
 
     async saveNote() {
@@ -90,86 +76,87 @@ class NotesApp {
         const content = document.getElementById('noteContent').value.trim();
 
         if (!title || !content) {
-            alert('Por favor, completa tanto el título como el contenido');
+            alert('Por favor, escribe un título y contenido');
             return;
         }
 
-        console.log("Guardando nota:", { title, content });
-
-        const noteData = {
-            title,
-            content,
-            timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-            date: new Date().toLocaleDateString()
-        };
-
         try {
-            if (this.currentEditIndex !== null) {
-                // Editar nota existente
-                const noteId = this.notes[this.currentEditIndex].id;
-                await db.collection('notes').doc(noteId).update(noteData);
-                console.log("Nota actualizada:", noteId);
-            } else {
-                // Crear nueva nota
-                const result = await db.collection('notes').add(noteData);
-                console.log("Nota creada con ID:", result.id);
-            }
-            
-            // Recargar notas
-            await this.loadNotesFromFirebase();
+            // Guardar en Firebase
+            await db.collection('notes').add({
+                title: title,
+                content: content,
+                timestamp: new Date(),
+                date: new Date().toLocaleDateString('es-MX')
+            });
+
+            // Cerrar modal y recargar notas
             this.closeModal();
-            alert('Nota guardada correctamente!');
+            this.loadNotes();
             
         } catch (error) {
             console.error('Error guardando nota:', error);
-            alert('Error al guardar la nota: ' + error.message);
+            alert('Error al guardar: ' + error.message);
         }
     }
 
-    async deleteNote(index) {
-        if (confirm('¿Estás seguro de que quieres eliminar esta nota?')) {
-            try {
-                const noteId = this.notes[index].id;
-                await db.collection('notes').doc(noteId).delete();
-                await this.loadNotesFromFirebase();
-                alert('Nota eliminada correctamente');
-            } catch (error) {
-                console.error('Error eliminando nota:', error);
-                alert('Error al eliminar la nota: ' + error.message);
-            }
+    async loadNotes() {
+        try {
+            const snapshot = await db.collection('notes')
+                .orderBy('timestamp', 'desc')
+                .get();
+            
+            this.notes = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            }));
+            
+            this.displayNotes();
+        } catch (error) {
+            console.error('Error cargando notas:', error);
         }
     }
 
-    renderNotes() {
+    displayNotes() {
         const container = document.getElementById('notesContainer');
         
         if (this.notes.length === 0) {
-            container.innerHTML = '<p style="text-align: center; color: #666;">No hay notas aún. ¡Crea tu primera nota!</p>';
+            container.innerHTML = '<p style="text-align: center; color: #666; padding: 20px;">No hay notas aún. ¡Crea tu primera nota!</p>';
             return;
         }
 
-        container.innerHTML = this.notes.map((note, index) => `
+        container.innerHTML = this.notes.map(note => `
             <div class="note">
                 <h3>${this.escapeHtml(note.title)}</h3>
                 <p>${this.escapeHtml(note.content)}</p>
                 <div class="note-meta">
-                    <small>${note.date || 'Sin fecha'}</small>
+                    <small>${note.date || 'Hoy'}</small>
                 </div>
                 <div class="note-actions">
-                    <button class="edit-btn" onclick="app.openModal(${index})">Editar</button>
-                    <button class="delete-btn" onclick="app.deleteNote(${index})">Eliminar</button>
+                    <button class="delete-btn" onclick="app.deleteNote('${note.id}')">Eliminar</button>
                 </div>
             </div>
         `).join('');
     }
 
+    async deleteNote(noteId) {
+        if (confirm('¿Eliminar esta nota?')) {
+            try {
+                await db.collection('notes').doc(noteId).delete();
+                this.loadNotes();
+            } catch (error) {
+                alert('Error eliminando nota: ' + error.message);
+            }
+        }
+    }
+
     escapeHtml(text) {
-        if (!text) return '';
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
     }
 }
 
-// Inicializar la aplicación cuando se carga la página
-const app = new NotesApp();
+// Iniciar la app cuando se cargue la página
+document.addEventListener('DOMContentLoaded', function() {
+    window.app = new NotesApp();
+});
