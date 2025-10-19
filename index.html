@@ -15,25 +15,30 @@
         </header>
         
         <div class="notes-container" id="notesContainer">
-            <!-- Las notas se agregarán aquí -->
-        </div>
+            </div>
     </div>
 
-    <!-- Modal -->
     <div id="noteModal" class="modal">
         <div class="modal-content">
             <span class="close">&times;</span>
             <h2>Nueva Nota</h2>
+            
             <input type="text" id="noteTitle" placeholder="Título de la nota...">
             <textarea id="noteContent" placeholder="Escribe tu nota aquí..." rows="6"></textarea>
+
+            <div class="color-selector">
+                <span class="color-option active" data-color="white" style="background-color: #ffffff;"></span>
+                <span class="color-option" data-color="yellow" style="background-color: #fff9a3;"></span>
+                <span class="color-option" data-color="pink" style="background-color: #ffadb6;"></span>
+                <span class="color-option" data-color="blue" style="background-color: #a3d2ff;"></span>
+                <span class="color-option" data-color="green" style="background-color: #b0ffad;"></span>
+            </div>
             <button id="saveNoteBtn">Guardar Nota</button>
         </div>
     </div>
 
-    <!-- Firebase PRIMERO -->
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
-    <!-- Nuestra app DESPUÉS -->
     <script src="app.js"></script>
 </body>
 </html>
