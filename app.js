@@ -1,6 +1,5 @@
 // =================================================================
 // Configuración de Firebase
-// Mantenemos la configuración original
 // =================================================================
 const firebaseConfig = {
     apiKey: "AIzaSyAom3LUnJQWK8t9h0G1mftIvClyPDiG1A",
@@ -25,7 +24,7 @@ class NotesApp {
 
     init() {
         this.setupEventListeners();
-        // Solo llamamos a la escucha de notas, que ahora es continua
+        // Llamamos al método de escucha en tiempo real
         this.loadNotes(); 
     }
 
@@ -87,12 +86,12 @@ class NotesApp {
             await db.collection('notes').add({
                 title: title,
                 content: content,
-                timestamp: firebase.firestore.FieldValue.serverTimestamp(), // MEJORA: Usar la marca de tiempo del servidor
+                // Usamos la marca de tiempo del servidor para ordenar correctamente
+                timestamp: firebase.firestore.FieldValue.serverTimestamp(),
                 date: new Date().toLocaleDateString('es-MX')
             });
 
-            // Solo cerramos el modal. Ya NO necesitamos llamar a this.loadNotes(), 
-            // porque onSnapshot lo hará automáticamente.
+            // Solo cerramos el modal. onSnapshot se encarga de la recarga.
             this.closeModal();
             
         } catch (error) {
@@ -101,31 +100,22 @@ class NotesApp {
         }
     }
 
-    // =================================================================
-    // CÓDIGO CORREGIDO: Usamos onSnapshot para Sincronización en Tiempo Real
-    // =================================================================
+    // Método de escucha en tiempo real (onSnapshot)
     loadNotes() {
-        // onSnapshot establece una "escucha" continua. 
-        // Se activa inmediatamente y luego cada vez que la colección cambia en Firebase.
-        try {
-            db.collection('notes')
-                .orderBy('timestamp', 'desc')
-                .onSnapshot(snapshot => {
-                    
-                    this.notes = snapshot.docs.map(doc => ({
-                        id: doc.id,
-                        // Convertimos el Timestamp a un objeto Date (si existe)
-                        // Firebase v8 maneja esto automáticamente en .data(), pero esta es una buena práctica.
-                        ...doc.data() 
-                    }));
-                    
-                    this.displayNotes();
-                }, error => {
-                    console.error('Error al escuchar cambios en notas:', error);
-                });
-        } catch (error) {
-            console.error('Error cargando la configuración inicial de notas:', error);
-        }
+        // Importante: 'db' ya está garantizado como inicializado por el bloque de abajo.
+        db.collection('notes')
+            .orderBy('timestamp', 'desc')
+            .onSnapshot(snapshot => { // Esto se ejecuta en cada cambio
+                
+                this.notes = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data() 
+                }));
+                
+                this.displayNotes();
+            }, error => {
+                console.error('Error al escuchar cambios en notas:', error);
+            });
     }
 
     displayNotes() {
@@ -153,7 +143,7 @@ class NotesApp {
     async deleteNote(noteId) {
         if (confirm('¿Eliminar esta nota?')) {
             try {
-                // Al eliminar, onSnapshot se encarga de recargar la lista automáticamente.
+                // onSnapshot se encarga de la recarga automática después de la eliminación.
                 await db.collection('notes').doc(noteId).delete();
             } catch (error) {
                 alert('Error eliminando nota: ' + error.message);
@@ -169,22 +159,31 @@ class NotesApp {
 }
 
 // =================================================================
-// Inicio de la aplicación con chequeo de Firebase
+// INICIO DE LA APLICACIÓN (CORRECCIÓN CLAVE)
 // =================================================================
 document.addEventListener('DOMContentLoaded', function() {
-    // Inicializar Firebase de forma segura
-    if (typeof firebase !== 'undefined') {
-        firebase.initializeApp(firebaseConfig);
-        db = firebase.firestore(); // Asignamos la instancia a la variable 'db'
-        
-        // Solo iniciamos la app si Firebase se inicializó correctamente
-        window.app = new NotesApp();
+    // Inicializar Firebase de forma segura y garantizar el orden de ejecución
+    if (typeof firebase !== 'undefined' && firebase.firestore) {
+        try {
+            // 1. Inicializar Firebase App
+            firebase.initializeApp(firebaseConfig);
+            // 2. Obtener la referencia a Firestore
+            db = firebase.firestore(); 
+            
+            // 3. SOLO AHORA, iniciamos la aplicación
+            window.app = new NotesApp();
+        } catch (error) {
+            console.error("Error al inicializar Firebase o Firestore:", error);
+            const container = document.getElementById('notesContainer');
+            if(container) {
+                 container.innerHTML = `<h2 style="color:red; text-align:center;">ERROR DE CONEXIÓN: ${error.message}</h2>`;
+            }
+        }
     } else {
-        console.error("Firebase no está cargado. Asegúrate de incluir los scripts de Firebase en tu index.html ANTES de app.js.");
-        // Opcional: Mostrar un error al usuario si no hay conexión.
+        console.error("Firebase no está cargado. Revisa tus etiquetas <script> en index.html.");
         const container = document.getElementById('notesContainer');
         if(container) {
-             container.innerHTML = '<h2 style="color:red; text-align:center;">ERROR: No se pudo conectar a la base de datos (Firebase no cargado).</h2>';
+             container.innerHTML = '<h2 style="color:red; text-align:center;">ERROR: Las librerías de Firebase no están cargadas.</h2>';
         }
     }
 });
