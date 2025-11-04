@@ -33,7 +33,10 @@
                 <h1>📝 Mis Notas</h1>
                 <div class="header-controls">
                     <button id="themeToggle" class="theme-btn" title="Cambiar tema">🌙</button>
-                    <button id="addNoteBtn">+ Nueva Nota</button>
+                    <div class="action-buttons">
+                        <button id="addNoteBtn" class="primary-btn">+ Nueva Nota</button>
+                        <button id="addVoiceNoteBtn" class="voice-btn">🎤 Nota de Voz</button>
+                    </div>
                 </div>
             </div>
             
@@ -42,8 +45,12 @@
                 <input type="text" id="searchInput" placeholder="🔍 Buscar en notas...">
                 <div class="search-filters">
                     <select id="categoryFilter">
-                        <option value="all">Todas las categorías</option>
+                        <option value="all">Todas las notas</option>
                         <option value="favorites">⭐ Favoritas</option>
+                        <option value="text">📝 Solo texto</option>
+                        <option value="voice">🎤 Notas de voz</option>
+                        <option value="file">📎 Con archivos</option>
+                        <option value="image">🖼️ Con imágenes</option>
                         <option value="white">📄 Blanca</option>
                         <option value="yellow">💛 Amarilla</option>
                         <option value="pink">💗 Rosa</option>
@@ -59,6 +66,31 @@
         <div class="notes-stats">
             <span id="notesCount">0 notas</span>
             <span id="favoritesCount">0 favoritas</span>
+            <span id="voiceNotesCount">0 de voz</span>
+        </div>
+        
+        <!-- Grabadora de voz -->
+        <div id="voiceRecorder" class="voice-recorder" style="display: none;">
+            <div class="recorder-container">
+                <h3>🎤 Grabando nota de voz</h3>
+                <div class="recorder-display">
+                    <div class="recorder-visualizer" id="visualizer">
+                        <div class="bar"></div><div class="bar"></div><div class="bar"></div>
+                        <div class="bar"></div><div class="bar"></div><div class="bar"></div>
+                        <div class="bar"></div><div class="bar"></div><div class="bar"></div>
+                    </div>
+                    <div class="recorder-time" id="recordingTime">00:00</div>
+                    <div class="recorder-status" id="recorderStatus">Preparado para grabar...</div>
+                </div>
+                <div class="recorder-controls">
+                    <button id="startRecording" class="record-btn">🎤 Comenzar</button>
+                    <button id="stopRecording" class="stop-btn" disabled>⏹️ Detener</button>
+                    <button id="playRecording" class="play-btn" disabled>▶️ Reproducir</button>
+                    <button id="saveRecording" class="save-btn" disabled>💾 Guardar</button>
+                    <button id="cancelRecording" class="cancel-btn">❌ Cancelar</button>
+                </div>
+                <audio id="audioPreview" controls style="display: none; margin-top: 15px;"></audio>
+            </div>
         </div>
         
         <div class="notes-container" id="notesContainer">
@@ -70,7 +102,7 @@
     <div id="noteModal" class="modal">
         <div class="modal-content">
             <span class="close">&times;</span>
-            <h2>Nueva Nota</h2> 
+            <h2 id="modalTitle">Nueva Nota</h2> 
             
             <input type="text" id="noteTitle" placeholder="Título de la nota...">
             <textarea id="noteContent" placeholder="Escribe tu nota aquí..." rows="6"></textarea>
@@ -88,9 +120,12 @@
             </div>
 
             <div class="modal-section">
-                <label for="noteImage">Agregar imagen (opcional):</label>
-                <input type="file" id="noteImage" accept="image/*">
-                <div id="imagePreview" class="image-preview"></div>
+                <label for="noteFiles">Agregar archivos (imágenes, PDF, documentos):</label>
+                <input type="file" id="noteFiles" accept="image/*,.pdf,.doc,.docx,.txt,.mp3,.wav" multiple>
+                <div class="file-types-info">
+                    <small>Formatos soportados: JPEG, PNG, PDF, DOC, TXT, MP3, WAV (Máx. 5MB c/u)</small>
+                </div>
+                <div id="filesPreview" class="files-preview"></div>
             </div>
             
             <div class="modal-actions">
@@ -102,6 +137,7 @@
     <!-- Firebase -->
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-storage.js"></script>
     <script src="app.js"></script>
 </body>
 </html>
