@@ -253,7 +253,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const closeModal = (modalElement) => {
         modalElement.style.display = 'none';
         document.body.style.overflow = 'auto';
-        resetModal();
+        // Solo resetea el modal principal si es ese el que se cierra
+        if (modalElement.id === 'noteModal') {
+             resetModal();
+        }
     };
 
     /** Limpia los campos del modal de nota */
@@ -275,6 +278,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Ocultar sección de voz en el modal de nota
         elements.voiceAttachmentSection.style.display = 'none';
         elements.existingVoiceAttachment.innerHTML = '';
+        elements.removeExistingVoiceBtn.style.display = 'none';
         audioBlob = null;
         audioUrl = null;
         seconds = 0;
@@ -325,6 +329,7 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
         } else {
             elements.voiceAttachmentSection.style.display = 'none';
+            elements.removeExistingVoiceBtn.style.display = 'none';
         }
 
         openModal(elements.noteModal, 'Editar Nota');
@@ -642,6 +647,23 @@ document.addEventListener('DOMContentLoaded', () => {
         resetVoiceRecorder();
         closeModal(elements.voiceRecorderModal);
     });
+    
+    // Evento de reproducción
+    elements.playBtn.addEventListener('click', () => {
+        if (elements.audioPreview.paused) {
+            elements.audioPreview.play();
+            elements.playBtn.innerHTML = '<i class="fas fa-pause"></i> Pausa';
+        } else {
+            elements.audioPreview.pause();
+            elements.playBtn.innerHTML = '<i class="fas fa-play"></i> Reproducir';
+        }
+    });
+
+    // Restaurar botón de Play al finalizar la reproducción
+    elements.audioPreview.addEventListener('ended', () => {
+        elements.playBtn.innerHTML = '<i class="fas fa-play"></i> Reproducir';
+    });
+
 
     // Eventos de las Notas (Delegación de eventos)
     elements.notesContainer.addEventListener('click', (e) => {
@@ -752,7 +774,7 @@ document.addEventListener('DOMContentLoaded', () => {
             elements.themeToggleBtn.innerHTML = '<i class="fas fa-sun"></i>';
         }
 
-        // Cargar y renderizar notas
+        // Cargar y renderizar notas (llama a saveNotes para inicializar)
         saveNotes(); 
     };
 
