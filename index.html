@@ -3,168 +3,141 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QuickNotes Pro - Gestión Avanzada de Notas</title>
-    <link rel="stylesheet" href="style.css"> 
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    
+    <!-- Meta Tags para Android -->
+    <meta name="theme-color" content="#4CAF50">
+    <meta name="description" content="Aplicación de notas personales - Guarda tus ideas en cualquier dispositivo">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="HandheldFriendly" content="true">
+    <meta name="format-detection" content="telephone=no">
+    
+    <!-- Meta Tags para Windows -->
+    <meta name="msapplication-TileColor" content="#4CAF50">
+    <meta name="msapplication-TileImage" content="icon-144.png">
+    <meta name="msapplication-config" content="none">
+    <meta name="application-name" content="Mis Notas App">
+    
+    <!-- Meta Tags Generales PWA -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    
+    <title>Mis Notas App</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
 </head>
-<body>
+<body class="light-mode">
     <div class="container">
-        <header class="header-top">
-            <h1><i class="fas fa-sticky-note"></i> QuickNotes Pro</h1>
-            <div class="header-controls">
-                <div class="action-buttons">
-                    <button id="openVoiceModalBtn" class="voice-btn" title="Grabar Nueva Nota de Voz">
-                        <i class="fas fa-microphone"></i> Nueva Voz
-                    </button>
-                    <button id="openModalBtn" class="primary-btn" title="Crear Nueva Nota">
-                        <i class="fas fa-plus"></i> Nueva Nota
-                    </button>
+        <header>
+            <div class="header-top">
+                <h1>📝 Mis Notas</h1>
+                <div class="header-controls">
+                    <button id="themeToggle" class="theme-btn" title="Cambiar tema">🌙</button>
+                    <div class="action-buttons">
+                        <button id="addNoteBtn" class="primary-btn">+ Nueva Nota</button>
+                        <button id="addVoiceNoteBtn" class="voice-btn">🎤 Nota de Voz</button>
+                    </div>
                 </div>
-                <button id="themeToggleBtn" class="theme-btn" title="Cambiar Tema">
-                    <i class="fas fa-sun"></i>
-                </button>
+            </div>
+            
+            <!-- Barra de búsqueda -->
+            <div class="search-container">
+                <input type="text" id="searchInput" placeholder="🔍 Buscar en notas...">
+                <div class="search-filters">
+                    <select id="categoryFilter">
+                        <option value="all">Todas las notas</option>
+                        <option value="favorites">⭐ Favoritas</option>
+                        <option value="text">📝 Solo texto</option>
+                        <option value="voice">🎤 Notas de voz</option>
+                        <option value="file">📎 Con archivos</option>
+                        <option value="image">🖼️ Con imágenes</option>
+                        <option value="white">📄 Blanca</option>
+                        <option value="yellow">💛 Amarilla</option>
+                        <option value="pink">💗 Rosa</option>
+                        <option value="blue">💙 Azul</option>
+                        <option value="green">💚 Verde</option>
+                        <option value="purple">💜 Morada</option>
+                    </select>
+                    <button id="clearSearch" class="clear-btn">Limpiar</button>
+                </div>
             </div>
         </header>
-
+        
         <div class="notes-stats">
-            <span><i class="fas fa-list-ul"></i> Total de Notas: <strong id="totalNotesCount">0</strong></span>
-            <span><i class="fas fa-star"></i> Favoritas: <strong id="favoriteNotesCount">0</strong></span>
-            <span><i class="fas fa-file-alt"></i> Con Archivos: <strong id="fileNotesCount">0</strong></span>
-            <span><i class="fas fa-microphone"></i> Notas de Voz: <strong id="voiceNotesCount">0</strong></span>
+            <span id="notesCount">0 notas</span>
+            <span id="favoritesCount">0 favoritas</span>
+            <span id="voiceNotesCount">0 de voz</span>
         </div>
         
-        <div class="search-container">
-            <input type="text" id="searchInput" placeholder="Buscar notas por título o contenido...">
-            <div class="search-filters">
-                <select id="categoryFilter" title="Filtrar por Categoría">
-                    <option value="all">Todas las Categorías</option>
-                </select>
-                <button id="clearFiltersBtn" class="clear-btn" title="Limpiar Filtros">
-                    <i class="fas fa-times"></i> Limpiar
-                </button>
+        <!-- Grabadora de voz -->
+        <div id="voiceRecorder" class="voice-recorder" style="display: none;">
+            <div class="recorder-container">
+                <h3>🎤 Grabando nota de voz</h3>
+                <div class="recorder-display">
+                    <div class="recorder-visualizer" id="visualizer">
+                        <div class="bar"></div><div class="bar"></div><div class="bar"></div>
+                        <div class="bar"></div><div class="bar"></div><div class="bar"></div>
+                        <div class="bar"></div><div class="bar"></div><div class="bar"></div>
+                    </div>
+                    <div class="recorder-time" id="recordingTime">00:00</div>
+                    <div class="recorder-status" id="recorderStatus">Preparado para grabar...</div>
+                </div>
+                <div class="recorder-controls">
+                    <button id="startRecording" class="record-btn">🎤 Comenzar</button>
+                    <button id="stopRecording" class="stop-btn" disabled>⏹️ Detener</button>
+                    <button id="playRecording" class="play-btn" disabled>▶️ Reproducir</button>
+                    <button id="saveRecording" class="save-btn" disabled>💾 Guardar</button>
+                    <button id="cancelRecording" class="cancel-btn">❌ Cancelar</button>
+                </div>
+                <audio id="audioPreview" controls style="display: none; margin-top: 15px;"></audio>
             </div>
         </div>
-
-        <div id="notesContainer" class="notes-container">
-            <div id="emptyState" class="empty-state" style="display: none;">
-                <div class="icon">📝</div>
-                <h3>¡Crea tu primera nota!</h3>
-                <p>Parece que aún no tienes ninguna nota. Utiliza el botón "Nueva Nota" para empezar a organizar tus ideas.</p>
-                <button id="emptyStateCreateBtn">Crear Nueva Nota</button>
-            </div>
+        
+        <div class="notes-container" id="notesContainer">
+            <!-- Las notas se agregarán aquí dinámicamente -->
         </div>
     </div>
 
+    <!-- Modal para crear/editar notas -->
     <div id="noteModal" class="modal">
         <div class="modal-content">
-            <span class="close" id="closeModalBtn">&times;</span>
-            <h2 id="modalTitle">Crear Nueva Nota</h2>
+            <span class="close">&times;</span>
+            <h2 id="modalTitle">Nueva Nota</h2> 
             
-            <form id="noteForm">
-                <div class="modal-section">
-                    <label for="noteTitle">Título:</label>
-                    <input type="text" id="noteTitle" maxlength="100" placeholder="Título de la nota (máx 100 caracteres)" required>
-                </div>
-                
-                <div class="modal-section">
-                    <label for="noteContent">Contenido:</label>
-                    <textarea id="noteContent" rows="5" maxlength="500" placeholder="Escribe el contenido de tu nota (máx 500 caracteres)"></textarea>
-                </div>
-                
-                <div class="modal-section">
-                    <label>Color de la Nota:</label>
-                    <div class="color-selector" id="colorSelector">
-                        <div class="color-option white active" data-color="white" style="background-color: var(--bg-secondary);"></div>
-                        <div class="color-option yellow" data-color="yellow" style="background-color: #FFC107;"></div>
-                        <div class="color-option pink" data-color="pink" style="background-color: #E91E63;"></div>
-                        <div class="color-option blue" data-color="blue" style="background-color: #2196F3;"></div>
-                        <div class="color-option green" data-color="green" style="background-color: #4CAF50;"></div>
-                        <div class="color-option purple" data-color="purple" style="background-color: #9C27B0;"></div>
-                    </div>
-                </div>
+            <input type="text" id="noteTitle" placeholder="Título de la nota...">
+            <textarea id="noteContent" placeholder="Escribe tu nota aquí..." rows="6"></textarea>
 
-                <div class="modal-section">
-                    <label for="noteCategory">Categoría:</label>
-                    <input list="categoriesList" id="noteCategory" placeholder="Escribe o selecciona una categoría">
-                    <datalist id="categoriesList">
-                        </datalist>
+            <div class="modal-section">
+                <label>Color de la nota:</label>
+                <div class="color-selector">
+                    <span class="color-option active" data-color="white" style="background-color: #ffffff;" title="Blanca">📄</span>
+                    <span class="color-option" data-color="yellow" style="background-color: #fff9a3;" title="Amarilla">💛</span>
+                    <span class="color-option" data-color="pink" style="background-color: #ffadb6;" title="Rosa">💗</span>
+                    <span class="color-option" data-color="blue" style="background-color: #a3d2ff;" title="Azul">💙</span>
+                    <span class="color-option" data-color="green" style="background-color: #b0ffad;" title="Verde">💚</span>
+                    <span class="color-option" data-color="purple" style="background-color: #e0b0ff;" title="Morada">💜</span>
                 </div>
+            </div>
 
-                <div class="modal-section">
-                    <label for="noteFiles">Adjuntar Archivos (Imágenes, PDF, etc.):</label>
-                    <input type="file" id="noteFiles" multiple accept=".pdf, .doc, .docx, .jpg, .jpeg, .png, .gif, .mp3, .mp4">
-                    <p class="file-types-info">Máximo 5 archivos, 2MB c/u. Tipos: imagen, documento, audio/video.</p>
-                    <div id="filesPreview" class="files-preview">
-                        </div>
-                    <div id="existingFilesPreview" class="files-preview">
-                        </div>
+            <div class="modal-section">
+                <label for="noteFiles">Agregar archivos (imágenes, PDF, documentos):</label>
+                <input type="file" id="noteFiles" accept="image/*,.pdf,.doc,.docx,.txt,.mp3,.wav" multiple>
+                <div class="file-types-info">
+                    <small>Formatos soportados: JPEG, PNG, PDF, DOC, TXT, MP3, WAV (Máx. 5MB c/u)</small>
                 </div>
-
-                <div class="modal-section" id="voiceAttachmentSection" style="display: none;">
-                    <label>Nota de Voz Adjunta:</label>
-                    <div class="attachment" id="existingVoiceAttachment">
-                        </div>
-                    <button type="button" class="delete-btn" id="removeExistingVoiceBtn" style="margin-top: 10px; display: none;">
-                        <i class="fas fa-trash"></i> Quitar Audio
-                    </button>
-                </div>
-
-                <div class="modal-actions">
-                    <button type="submit" id="saveNoteBtn" class="primary-btn">
-                        <i class="fas fa-save"></i> Guardar Nota
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <div id="voiceRecorderModal" class="modal">
-        <div class="modal-content voice-recorder">
-            <span class="close" id="closeVoiceModalBtn">&times;</span>
-            <div class="recorder-container">
-                <h3><i class="fas fa-microphone"></i> Grabadora de Nota de Voz</h3>
-                
-                <div class="recorder-display">
-                    <div id="audioVisualizer" class="recorder-visualizer">
-                        <div class="bar"></div>
-                        <div class="bar"></div>
-                        <div class="bar"></div>
-                        <div class="bar"></div>
-                        <div class="bar"></div>
-                        <div class="bar"></div>
-                        <div class="bar"></div>
-                        <div class="bar"></div>
-                        <div class="bar"></div>
-                        <div class="bar"></div>
-                    </div>
-                    
-                    <div id="recorderTime" class="recorder-time">00:00</div>
-                    <div id="recorderStatus" class="recorder-status">Listo para grabar</div>
-                    
-                    <audio id="audioPreview" controls style="display: none;"></audio> 
-                </div>
-
-                <div class="recorder-controls">
-                    <button id="recordBtn" class="record-btn" title="Iniciar Grabación">
-                        <i class="fas fa-circle"></i> Grabar
-                    </button>
-                    <button id="stopBtn" class="stop-btn" title="Detener Grabación" disabled>
-                        <i class="fas fa-stop"></i> Detener
-                    </button>
-                    <button id="playBtn" class="play-btn" title="Reproducir Grabación" disabled>
-                        <i class="fas fa-play"></i> Reproducir
-                    </button>
-                    <button id="saveVoiceBtn" class="save-btn" title="Guardar Nota de Voz" disabled>
-                        <i class="fas fa-upload"></i> Guardar
-                    </button>
-                    <button id="cancelVoiceBtn" class="cancel-btn" title="Cancelar y Borrar">
-                        <i class="fas fa-times"></i> Cancelar
-                    </button>
-                </div>
+                <div id="filesPreview" class="files-preview"></div>
+            </div>
+            
+            <div class="modal-actions">
+                <button type="button" id="saveNoteBtn" class="save-btn">💾 Guardar Nota</button>
             </div>
         </div>
     </div>
 
-    <script src="script.js"></script>
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-storage.js"></script>
+    <script src="app.js"></script>
 </body>
 </html>
