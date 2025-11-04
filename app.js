@@ -1,5 +1,5 @@
 // ==================================================
-// Mis Notas App - Versión con Autenticación
+// Mis Notas App - Versión con Autenticación CORREGIDA
 // ==================================================
 
 // Configuración de Firebase
@@ -170,6 +170,8 @@ class NotesApp {
         
         // Logout
         this.safeAddEventListener('logoutBtn', 'click', () => this.handleLogout());
+
+        console.log('✅ Event listeners de autenticación configurados');
     }
 
     showScreen(screenId) {
@@ -179,7 +181,10 @@ class NotesApp {
         });
         
         // Mostrar la pantalla solicitada
-        document.getElementById(screenId).style.display = 'flex';
+        const screen = document.getElementById(screenId);
+        if (screen) {
+            screen.style.display = 'flex';
+        }
         
         // Limpiar errores
         const errorDiv = document.getElementById('authError');
@@ -263,6 +268,10 @@ class NotesApp {
             });
             
             console.log('✅ Usuario registrado:', user.email);
+            
+            // Forzar actualización del estado de autenticación
+            await auth.currentUser.reload();
+            
         } catch (error) {
             console.error('❌ Error en registro:', error);
             let errorMessage = 'Error al crear la cuenta';
@@ -333,7 +342,11 @@ class NotesApp {
         console.log('👤 Usuario logueado:', user.email);
         
         // Actualizar UI
-        document.getElementById('userName').textContent = user.displayName || user.email;
+        const userNameElement = document.getElementById('userName');
+        if (userNameElement) {
+            userNameElement.textContent = user.displayName || user.email;
+        }
+        
         this.showScreen('appScreen');
         
         // Inicializar la app de notas
@@ -351,9 +364,13 @@ class NotesApp {
         this.showScreen('loginScreen');
         
         // Limpiar formularios
-        document.getElementById('loginForm').reset();
-        document.getElementById('registerForm').reset();
-        document.getElementById('forgotPasswordForm').reset();
+        const loginForm = document.getElementById('loginForm');
+        const registerForm = document.getElementById('registerForm');
+        const forgotPasswordForm = document.getElementById('forgotPasswordForm');
+        
+        if (loginForm) loginForm.reset();
+        if (registerForm) registerForm.reset();
+        if (forgotPasswordForm) forgotPasswordForm.reset();
     }
 
     async handleLogout() {
@@ -438,7 +455,9 @@ class NotesApp {
         statusBanner.style.color = 'white';
 
         setTimeout(() => {
-            statusBanner.style.transform = 'translateY(-100%)';
+            if (statusBanner) {
+                statusBanner.style.transform = 'translateY(-100%)';
+            }
         }, 3000);
     }
 
@@ -786,6 +805,7 @@ const additionalStyles = `
         cursor: pointer;
         text-decoration: underline;
         margin: 5px;
+        font-size: 14px;
     }
     
     .link-btn:hover {
@@ -800,6 +820,7 @@ const additionalStyles = `
         margin-bottom: 15px;
         text-align: center;
         border: 1px solid #ffcdd2;
+        display: none;
     }
     
     .user-info {
@@ -827,6 +848,7 @@ const additionalStyles = `
         padding: 8px 15px;
         border-radius: 5px;
         cursor: pointer;
+        font-size: 14px;
     }
     
     #logoutBtn:hover {

@@ -403,4 +403,9 @@ h1 {
     .auth-header h1 {
         font-size: 24px;
     }
+    
+    .user-menu {
+        flex-direction: column;
+        gap: 10px;
+    }
 }
