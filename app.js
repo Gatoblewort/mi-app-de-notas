@@ -1,5 +1,5 @@
 // ==================================================
-// Mis Notas App - Versión Mejorada para PWA
+// Mis Notas App - Versión con Autenticación
 // ==================================================
 
 // Configuración de Firebase
@@ -14,40 +14,49 @@ const firebaseConfig = {
 
 // Variables globales
 let db = null;
+let auth = null;
 let appInstance = null;
+let currentUser = null;
 
 // Inicializar Firebase de forma segura
 function initializeFirebase() {
     try {
         if (typeof firebase === 'undefined') {
             console.error('❌ Firebase no está cargado');
-            showError('Error: Firebase no está disponible');
+            showAuthError('Error: Firebase no está disponible');
             return false;
         }
 
         firebase.initializeApp(firebaseConfig);
         db = firebase.firestore();
+        auth = firebase.auth();
         
         console.log('✅ Firebase inicializado correctamente');
         return true;
     } catch (error) {
         console.error('❌ Error inicializando Firebase:', error);
-        showError('Error de conexión con la base de datos');
+        showAuthError('Error de conexión con la base de datos');
         return false;
     }
 }
 
-// Mostrar errores amigables
-function showError(message) {
-    const container = document.getElementById('notesContainer');
-    if (container) {
-        container.innerHTML = `
-            <div class="error-message">
-                <h3>😕 Algo salió mal</h3>
-                <p>${message}</p>
-                <button onclick="location.reload()">Reintentar</button>
-            </div>
-        `;
+// Mostrar errores en pantallas de autenticación
+function showAuthError(message) {
+    const authContainer = document.querySelector('.auth-container');
+    if (authContainer) {
+        let errorDiv = document.getElementById('authError');
+        if (!errorDiv) {
+            errorDiv = document.createElement('div');
+            errorDiv.id = 'authError';
+            errorDiv.className = 'auth-error';
+            authContainer.insertBefore(errorDiv, authContainer.querySelector('.auth-form'));
+        }
+        errorDiv.textContent = message;
+        errorDiv.style.display = 'block';
+        
+        setTimeout(() => {
+            errorDiv.style.display = 'none';
+        }, 5000);
     }
 }
 
@@ -122,17 +131,241 @@ class NotesApp {
     }
 
     init() {
-        console.log('🚀 Iniciando Mis Notas App...');
-        this.setupEventListeners();
-        this.setupNetworkDetection();
-        this.checkServiceWorker();
+        console.log('🚀 Iniciando Mis Notas App con Autenticación...');
+        this.setupAuthStateListener();
+        this.setupAuthEventListeners();
         
         if (initializeFirebase()) {
-            this.loadNotes();
+            console.log('✅ Firebase listo, esperando autenticación...');
         }
     }
 
-    setupEventListeners() {
+    setupAuthStateListener() {
+        auth.onAuthStateChanged((user) => {
+            if (user) {
+                // Usuario autenticado
+                this.handleUserLogin(user);
+            } else {
+                // Usuario no autenticado
+                this.handleUserLogout();
+            }
+        });
+    }
+
+    setupAuthEventListeners() {
+        // Login
+        this.safeAddEventListener('loginForm', 'submit', (e) => this.handleLogin(e));
+        
+        // Registro
+        this.safeAddEventListener('registerForm', 'submit', (e) => this.handleRegister(e));
+        
+        // Recuperación de contraseña
+        this.safeAddEventListener('forgotPasswordForm', 'submit', (e) => this.handlePasswordReset(e));
+        
+        // Navegación entre pantallas auth
+        this.safeAddEventListener('showRegisterBtn', 'click', () => this.showScreen('registerScreen'));
+        this.safeAddEventListener('showLoginBtn', 'click', () => this.showScreen('loginScreen'));
+        this.safeAddEventListener('forgotPasswordBtn', 'click', () => this.showScreen('forgotPasswordScreen'));
+        this.safeAddEventListener('backToLoginBtn', 'click', () => this.showScreen('loginScreen'));
+        
+        // Logout
+        this.safeAddEventListener('logoutBtn', 'click', () => this.handleLogout());
+    }
+
+    showScreen(screenId) {
+        // Ocultar todas las pantallas
+        document.querySelectorAll('.auth-screen, #appScreen').forEach(screen => {
+            screen.style.display = 'none';
+        });
+        
+        // Mostrar la pantalla solicitada
+        document.getElementById(screenId).style.display = 'flex';
+        
+        // Limpiar errores
+        const errorDiv = document.getElementById('authError');
+        if (errorDiv) errorDiv.style.display = 'none';
+    }
+
+    async handleLogin(e) {
+        e.preventDefault();
+        
+        const email = document.getElementById('loginEmail').value;
+        const password = document.getElementById('loginPassword').value;
+        const loginBtn = document.getElementById('loginBtn');
+        
+        if (!email || !password) {
+            showAuthError('Por favor, completa todos los campos');
+            return;
+        }
+
+        const originalText = loginBtn.textContent;
+        loginBtn.disabled = true;
+        loginBtn.textContent = 'Iniciando sesión...';
+
+        try {
+            const userCredential = await auth.signInWithEmailAndPassword(email, password);
+            console.log('✅ Usuario autenticado:', userCredential.user.email);
+        } catch (error) {
+            console.error('❌ Error en login:', error);
+            let errorMessage = 'Error al iniciar sesión';
+            
+            switch (error.code) {
+                case 'auth/user-not-found':
+                    errorMessage = 'No existe una cuenta con este correo';
+                    break;
+                case 'auth/wrong-password':
+                    errorMessage = 'Contraseña incorrecta';
+                    break;
+                case 'auth/invalid-email':
+                    errorMessage = 'Correo electrónico inválido';
+                    break;
+                case 'auth/too-many-requests':
+                    errorMessage = 'Demasiados intentos. Intenta más tarde';
+                    break;
+            }
+            
+            showAuthError(errorMessage);
+        } finally {
+            loginBtn.disabled = false;
+            loginBtn.textContent = originalText;
+        }
+    }
+
+    async handleRegister(e) {
+        e.preventDefault();
+        
+        const name = document.getElementById('registerName').value;
+        const email = document.getElementById('registerEmail').value;
+        const password = document.getElementById('registerPassword').value;
+        const registerBtn = document.getElementById('registerBtn');
+        
+        if (!name || !email || !password) {
+            showAuthError('Por favor, completa todos los campos');
+            return;
+        }
+
+        if (password.length < 6) {
+            showAuthError('La contraseña debe tener al menos 6 caracteres');
+            return;
+        }
+
+        const originalText = registerBtn.textContent;
+        registerBtn.disabled = true;
+        registerBtn.textContent = 'Creando cuenta...';
+
+        try {
+            const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+            const user = userCredential.user;
+            
+            // Actualizar perfil del usuario con el nombre
+            await user.updateProfile({
+                displayName: name
+            });
+            
+            console.log('✅ Usuario registrado:', user.email);
+        } catch (error) {
+            console.error('❌ Error en registro:', error);
+            let errorMessage = 'Error al crear la cuenta';
+            
+            switch (error.code) {
+                case 'auth/email-already-in-use':
+                    errorMessage = 'Este correo ya está registrado';
+                    break;
+                case 'auth/invalid-email':
+                    errorMessage = 'Correo electrónico inválido';
+                    break;
+                case 'auth/weak-password':
+                    errorMessage = 'La contraseña es muy débil';
+                    break;
+                case 'auth/operation-not-allowed':
+                    errorMessage = 'Operación no permitida';
+                    break;
+            }
+            
+            showAuthError(errorMessage);
+        } finally {
+            registerBtn.disabled = false;
+            registerBtn.textContent = originalText;
+        }
+    }
+
+    async handlePasswordReset(e) {
+        e.preventDefault();
+        
+        const email = document.getElementById('resetEmail').value;
+        const resetBtn = document.getElementById('resetPasswordBtn');
+        
+        if (!email) {
+            showAuthError('Por favor, ingresa tu correo electrónico');
+            return;
+        }
+
+        const originalText = resetBtn.textContent;
+        resetBtn.disabled = true;
+        resetBtn.textContent = 'Enviando...';
+
+        try {
+            await auth.sendPasswordResetEmail(email);
+            showAuthError('✅ Correo enviado. Revisa tu bandeja de entrada.');
+            document.getElementById('resetEmail').value = '';
+        } catch (error) {
+            console.error('❌ Error enviando correo:', error);
+            let errorMessage = 'Error al enviar el correo';
+            
+            switch (error.code) {
+                case 'auth/user-not-found':
+                    errorMessage = 'No existe una cuenta con este correo';
+                    break;
+                case 'auth/invalid-email':
+                    errorMessage = 'Correo electrónico inválido';
+                    break;
+            }
+            
+            showAuthError(errorMessage);
+        } finally {
+            resetBtn.disabled = false;
+            resetBtn.textContent = originalText;
+        }
+    }
+
+    handleUserLogin(user) {
+        currentUser = user;
+        console.log('👤 Usuario logueado:', user.email);
+        
+        // Actualizar UI
+        document.getElementById('userName').textContent = user.displayName || user.email;
+        this.showScreen('appScreen');
+        
+        // Inicializar la app de notas
+        this.setupAppEventListeners();
+        this.setupNetworkDetection();
+        this.checkServiceWorker();
+        this.loadNotes();
+    }
+
+    handleUserLogout() {
+        currentUser = null;
+        this.notes = [];
+        this.editingId = null;
+        console.log('👤 Usuario cerró sesión');
+        this.showScreen('loginScreen');
+        
+        // Limpiar formularios
+        document.getElementById('loginForm').reset();
+        document.getElementById('registerForm').reset();
+        document.getElementById('forgotPasswordForm').reset();
+    }
+
+    async handleLogout() {
+        try {
+            await auth.signOut();
+            console.log('✅ Sesión cerrada correctamente');
+        } catch (error) {
+            console.error('❌ Error cerrando sesión:', error);
+        }
+    }
+
+    setupAppEventListeners() {
         // Botón nueva nota
         this.safeAddEventListener('addNoteBtn', 'click', () => this.openModal());
         
@@ -164,17 +397,7 @@ class NotesApp {
             }
         });
 
-        console.log('✅ Event listeners configurados');
-    }
-
-    // Método seguro para agregar event listeners
-    safeAddEventListener(elementId, event, handler) {
-        const element = document.getElementById(elementId);
-        if (element) {
-            element.addEventListener(event, handler);
-        } else {
-            console.warn(`⚠️ Elemento no encontrado: ${elementId}`);
-        }
+        console.log('✅ Event listeners de app configurados');
     }
 
     setupNetworkDetection() {
@@ -192,7 +415,6 @@ class NotesApp {
     }
 
     showStatus(message, type) {
-        // Crear o actualizar banner de estado
         let statusBanner = document.getElementById('networkStatus');
         if (!statusBanner) {
             statusBanner = document.createElement('div');
@@ -215,7 +437,6 @@ class NotesApp {
         statusBanner.style.backgroundColor = type === 'online' ? '#4CAF50' : '#f44336';
         statusBanner.style.color = 'white';
 
-        // Ocultar después de 3 segundos
         setTimeout(() => {
             statusBanner.style.transform = 'translateY(-100%)';
         }, 3000);
@@ -226,15 +447,19 @@ class NotesApp {
             try {
                 const registration = await navigator.serviceWorker.register('./sw.js');
                 console.log('✅ Service Worker registrado:', registration);
-                
-                // Verificar actualizaciones
-                registration.addEventListener('updatefound', () => {
-                    console.log('🔄 Nueva versión disponible');
-                    this.showStatus('Nueva versión disponible', 'update');
-                });
             } catch (error) {
                 console.error('❌ Error registrando Service Worker:', error);
             }
+        }
+    }
+
+    // Método seguro para agregar event listeners
+    safeAddEventListener(elementId, event, handler) {
+        const element = document.getElementById(elementId);
+        if (element) {
+            element.addEventListener(event, handler);
+        } else {
+            console.warn(`⚠️ Elemento no encontrado: ${elementId}`);
         }
     }
 
@@ -304,6 +529,11 @@ class NotesApp {
             return;
         }
 
+        if (!currentUser) {
+            alert('❌ Debes iniciar sesión para guardar notas');
+            return;
+        }
+
         const title = document.getElementById('noteTitle').value.trim();
         const content = document.getElementById('noteContent').value.trim();
         const imageFile = document.getElementById('noteImage').files[0];
@@ -340,6 +570,8 @@ class NotesApp {
                 title: title,
                 content: content,
                 color: selectedColor,
+                userId: currentUser.uid, // Guardar ID del usuario
+                userEmail: currentUser.email, // Guardar email del usuario
                 timestamp: firebase.firestore.FieldValue.serverTimestamp(),
                 lastUpdated: new Date().toISOString()
             };
@@ -352,12 +584,12 @@ class NotesApp {
 
             saveBtn.textContent = 'Guardando en la nube...';
 
-            // Guardar en Firebase
+            // Guardar en Firebase bajo la colección del usuario
             if (this.editingId) {
-                await db.collection('notes').doc(this.editingId).update(noteData);
+                await db.collection('users').doc(currentUser.uid).collection('notes').doc(this.editingId).update(noteData);
                 console.log('✅ Nota actualizada:', this.editingId);
             } else {
-                const result = await db.collection('notes').add(noteData);
+                const result = await db.collection('users').doc(currentUser.uid).collection('notes').add(noteData);
                 console.log('✅ Nota creada:', result.id);
             }
 
@@ -374,12 +606,13 @@ class NotesApp {
     }
 
     loadNotes() {
-        if (!db) {
-            console.error('Firestore no está disponible');
+        if (!db || !currentUser) {
+            console.error('Firestore o usuario no disponible');
             return;
         }
 
-        db.collection('notes')
+        // Cargar notas solo del usuario actual
+        db.collection('users').doc(currentUser.uid).collection('notes')
             .orderBy('timestamp', 'desc')
             .onSnapshot(snapshot => {
                 this.notes = snapshot.docs.map(doc => ({
@@ -445,7 +678,7 @@ class NotesApp {
         }
 
         try {
-            await db.collection('notes').doc(noteId).delete();
+            await db.collection('users').doc(currentUser.uid).collection('notes').doc(noteId).delete();
             console.log('✅ Nota eliminada:', noteId);
         } catch (error) {
             console.error('❌ Error eliminando nota:', error);
@@ -463,13 +696,143 @@ class NotesApp {
 
 // Inicializar la aplicación cuando todo esté listo
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('📱 Mis Notas App - Inicializando...');
+    console.log('📱 Mis Notas App con Autenticación - Inicializando...');
     appInstance = new NotesApp();
     window.app = appInstance;
 });
 
 // Estilos adicionales para los nuevos elementos
 const additionalStyles = `
+    .auth-screen {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 20px;
+    }
+    
+    .auth-container {
+        background: white;
+        padding: 40px;
+        border-radius: 10px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        width: 100%;
+        max-width: 400px;
+    }
+    
+    .auth-header {
+        text-align: center;
+        margin-bottom: 30px;
+    }
+    
+    .auth-header h1 {
+        color: #333;
+        margin-bottom: 10px;
+    }
+    
+    .auth-header p {
+        color: #666;
+    }
+    
+    .auth-form {
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+    }
+    
+    .auth-form input {
+        padding: 12px;
+        border: 2px solid #ddd;
+        border-radius: 5px;
+        font-size: 16px;
+        transition: border-color 0.3s;
+    }
+    
+    .auth-form input:focus {
+        border-color: #4CAF50;
+        outline: none;
+    }
+    
+    .auth-form button {
+        background-color: #4CAF50;
+        color: white;
+        border: none;
+        padding: 12px;
+        border-radius: 5px;
+        font-size: 16px;
+        cursor: pointer;
+        transition: background-color 0.3s;
+    }
+    
+    .auth-form button:hover {
+        background-color: #45a049;
+    }
+    
+    .auth-form button:disabled {
+        background-color: #cccccc;
+        cursor: not-allowed;
+    }
+    
+    .auth-links {
+        text-align: center;
+        margin-top: 20px;
+    }
+    
+    .link-btn {
+        background: none;
+        border: none;
+        color: #4CAF50;
+        cursor: pointer;
+        text-decoration: underline;
+        margin: 5px;
+    }
+    
+    .link-btn:hover {
+        color: #45a049;
+    }
+    
+    .auth-error {
+        background: #ffebee;
+        color: #c62828;
+        padding: 10px;
+        border-radius: 5px;
+        margin-bottom: 15px;
+        text-align: center;
+        border: 1px solid #ffcdd2;
+    }
+    
+    .user-info {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        width: 100%;
+    }
+    
+    .user-menu {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+    }
+    
+    .user-menu span {
+        color: #666;
+        font-weight: bold;
+    }
+    
+    #logoutBtn {
+        background: #f44336;
+        color: white;
+        border: none;
+        padding: 8px 15px;
+        border-radius: 5px;
+        cursor: pointer;
+    }
+    
+    #logoutBtn:hover {
+        background: #d32f2f;
+    }
+    
     .error-message {
         text-align: center;
         padding: 40px 20px;
@@ -517,4 +880,4 @@ const styleSheet = document.createElement('style');
 styleSheet.textContent = additionalStyles;
 document.head.appendChild(styleSheet);
 
-console.log('🎉 Mis Notas App - Código cargado');
+console.log('🎉 Mis Notas App con Autenticación - Código cargado');

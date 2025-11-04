@@ -27,44 +27,115 @@
     <link rel="manifest" href="manifest.json">
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>📝 Mis Notas</h1>
-            <button id="addNoteBtn">+ Nueva Nota</button>
-        </header>
-        
-        <div class="notes-container" id="notesContainer">
-            <!-- Las notas se agregarán aquí dinámicamente -->
+    <!-- Pantalla de Login -->
+    <div id="loginScreen" class="auth-screen">
+        <div class="auth-container">
+            <div class="auth-header">
+                <h1>📝 Mis Notas</h1>
+                <p>Inicia sesión en tu cuenta</p>
+            </div>
+            
+            <form id="loginForm" class="auth-form">
+                <input type="email" id="loginEmail" placeholder="Correo electrónico" required>
+                <input type="password" id="loginPassword" placeholder="Contraseña" required>
+                <button type="submit" id="loginBtn">Iniciar Sesión</button>
+            </form>
+            
+            <div class="auth-links">
+                <button id="showRegisterBtn" class="link-btn">¿No tienes cuenta? Regístrate</button>
+                <button id="forgotPasswordBtn" class="link-btn">¿Olvidaste tu contraseña?</button>
+            </div>
         </div>
     </div>
 
-    <!-- Modal para crear/editar notas -->
-    <div id="noteModal" class="modal">
-        <div class="modal-content">
-            <span class="close">&times;</span>
-            <h2>Nueva Nota</h2> 
-            
-            <input type="text" id="noteTitle" placeholder="Título de la nota...">
-            <textarea id="noteContent" placeholder="Escribe tu nota aquí..." rows="6"></textarea>
-
-            <div class="color-selector">
-                <span class="color-option active" data-color="white" style="background-color: #ffffff;"></span>
-                <span class="color-option" data-color="yellow" style="background-color: #fff9a3;"></span>
-                <span class="color-option" data-color="pink" style="background-color: #ffadb6;"></span>
-                <span class="color-option" data-color="blue" style="background-color: #a3d2ff;"></span>
-                <span class="color-option" data-color="green" style="background-color: #b0ffad;"></span>
-                <span class="color-option" data-color="purple" style="background-color: #e0b0ff;"></span>
+    <!-- Pantalla de Registro -->
+    <div id="registerScreen" class="auth-screen" style="display: none;">
+        <div class="auth-container">
+            <div class="auth-header">
+                <h1>📝 Mis Notas</h1>
+                <p>Crea tu cuenta gratuita</p>
             </div>
             
-            <input type="file" id="noteImage" accept="image/*" style="margin-bottom: 15px;">
+            <form id="registerForm" class="auth-form">
+                <input type="text" id="registerName" placeholder="Nombre completo" required>
+                <input type="email" id="registerEmail" placeholder="Correo electrónico" required>
+                <input type="password" id="registerPassword" placeholder="Contraseña (mín. 6 caracteres)" required>
+                <button type="submit" id="registerBtn">Crear Cuenta</button>
+            </form>
             
-            <button id="saveNoteBtn">Guardar Nota</button>
+            <div class="auth-links">
+                <button id="showLoginBtn" class="link-btn">¿Ya tienes cuenta? Inicia Sesión</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pantalla de Recuperación de Contraseña -->
+    <div id="forgotPasswordScreen" class="auth-screen" style="display: none;">
+        <div class="auth-container">
+            <div class="auth-header">
+                <h1>🔐 Recuperar Contraseña</h1>
+                <p>Te enviaremos un enlace para restablecer tu contraseña</p>
+            </div>
+            
+            <form id="forgotPasswordForm" class="auth-form">
+                <input type="email" id="resetEmail" placeholder="Correo electrónico" required>
+                <button type="submit" id="resetPasswordBtn">Enviar Enlace</button>
+            </form>
+            
+            <div class="auth-links">
+                <button id="backToLoginBtn" class="link-btn">Volver al Login</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- App Principal (se muestra después del login) -->
+    <div id="appScreen" style="display: none;">
+        <div class="container">
+            <header>
+                <div class="user-info">
+                    <h1>📝 Mis Notas</h1>
+                    <div class="user-menu">
+                        <span id="userName">Usuario</span>
+                        <button id="logoutBtn">Cerrar Sesión</button>
+                    </div>
+                </div>
+                <button id="addNoteBtn">+ Nueva Nota</button>
+            </header>
+            
+            <div class="notes-container" id="notesContainer">
+                <!-- Las notas se agregarán aquí dinámicamente -->
+            </div>
+        </div>
+
+        <!-- Modal para crear/editar notas -->
+        <div id="noteModal" class="modal">
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <h2>Nueva Nota</h2> 
+                
+                <input type="text" id="noteTitle" placeholder="Título de la nota...">
+                <textarea id="noteContent" placeholder="Escribe tu nota aquí..." rows="6"></textarea>
+
+                <div class="color-selector">
+                    <span class="color-option active" data-color="white" style="background-color: #ffffff;"></span>
+                    <span class="color-option" data-color="yellow" style="background-color: #fff9a3;"></span>
+                    <span class="color-option" data-color="pink" style="background-color: #ffadb6;"></span>
+                    <span class="color-option" data-color="blue" style="background-color: #a3d2ff;"></span>
+                    <span class="color-option" data-color="green" style="background-color: #b0ffad;"></span>
+                    <span class="color-option" data-color="purple" style="background-color: #e0b0ff;"></span>
+                </div>
+                
+                <input type="file" id="noteImage" accept="image/*" style="margin-bottom: 15px;">
+                
+                <button id="saveNoteBtn">Guardar Nota</button>
+            </div>
         </div>
     </div>
 
     <!-- Firebase -->
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
     <script src="app.js"></script>
 </body>
 </html>
