@@ -1,5 +1,5 @@
 /* ================================================= */
-/* ESTILOS EXISTENTES (se mantienen igual) */
+/* ESTILOS GLOBALES Y VARIABLES */
 /* ================================================= */
 :root {
     --bg-primary: #f5f5f5;
@@ -67,6 +67,7 @@ h1 {
     font-weight: 700;
 }
 
+/* Estilos de Botones */
 .theme-btn {
     background: var(--bg-secondary);
     color: var(--text-primary);
@@ -115,7 +116,232 @@ h1 {
 }
 
 /* ================================================= */
-/* GRABADORA DE VOZ */
+/* ESTADÍSTICAS MEJORADAS */
+/* ================================================= */
+.notes-stats {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 20px;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    flex-wrap: wrap;
+}
+
+.notes-stats span {
+    background: var(--bg-secondary);
+    padding: 8px 15px;
+    border-radius: 15px;
+    box-shadow: var(--shadow);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+/* ================================================= */
+/* BÚSQUEDA Y FILTROS */
+/* ================================================= */
+.search-container {
+    background: var(--bg-secondary);
+    padding: 20px;
+    border-radius: 15px;
+    margin-bottom: 20px;
+    box-shadow: var(--shadow);
+}
+
+#searchInput {
+    width: 100%;
+    padding: 15px 20px;
+    border: 2px solid var(--border-color);
+    border-radius: 25px;
+    font-size: 1rem;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    margin-bottom: 15px;
+    transition: all 0.3s ease;
+}
+
+.search-filters {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+#categoryFilter {
+    padding: 10px 15px;
+    border: 2px solid var(--border-color);
+    border-radius: 10px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    flex: 1;
+    min-width: 200px;
+}
+
+.clear-btn {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    border: 2px solid var(--border-color);
+    padding: 10px 20px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.3s ease;
+}
+
+.clear-btn:hover {
+    background: var(--border-color);
+}
+
+/* ================================================= */
+/* CONTENEDOR DE NOTAS */
+/* ================================================= */
+.notes-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 25px;
+}
+
+.note {
+    background: var(--bg-secondary);
+    border-radius: 15px;
+    padding: 20px;
+    box-shadow: var(--shadow);
+    border-left: 5px solid #4CAF50; /* Color por defecto */
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+    animation: slideInUp 0.5s ease;
+}
+
+@keyframes slideInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.note h3 {
+    margin-bottom: 12px;
+    color: var(--text-primary);
+    font-size: 1.3rem;
+    line-height: 1.4;
+    padding-right: 60px; /* Espacio para el badge de tipo */
+}
+
+.note p {
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin-bottom: 10px;
+    word-wrap: break-word; /* Asegura que el texto largo se rompa */
+}
+
+.note-meta {
+    margin-top: 15px;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* Acciones de la Nota */
+.note-actions {
+    margin-top: 15px;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.note-actions button {
+    padding: 8px 15px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.favorite-btn {
+    background: transparent;
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color) !important;
+}
+
+.favorite-btn.active {
+    background: #ffd700;
+    color: #333;
+    border-color: #ffd700 !important;
+}
+
+.edit-btn {
+    background: #007bff;
+    color: white;
+}
+
+.delete-btn {
+    background: #f44336;
+    color: white;
+}
+
+/* Tipo de Nota (Badge) */
+.note-type-badge {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(0,0,0,0.7);
+    color: white;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.7rem;
+    font-weight: 600;
+}
+
+/* ================================================= */
+/* CONFIGURACIÓN DE COLORES PARA LAS NOTAS */
+/* ================================================= */
+
+.note.white { border-left-color: var(--border-color); }
+.note.yellow { border-left-color: #FFC107; }
+.note.pink { border-left-color: #E91E63; }
+.note.blue { border-left-color: #2196F3; }
+.note.green { border-left-color: #4CAF50; }
+.note.purple { border-left-color: #9C27B0; }
+
+/* Colores especiales por tipo (default, pueden ser sobreescritos) */
+.note.voice-note {
+    border-left-color: #FF6B6B; 
+}
+
+.note.file-note {
+    border-left-color: #2196F3;
+}
+
+/* Prioriza el color de la nota si está definido, sobre el tipo */
+.note.voice-note.blue { border-left-color: #2196F3; } 
+.note.voice-note.yellow { border-left-color: #FFC107; } 
+.note.voice-note.green { border-left-color: #4CAF50; } 
+.note.file-note.green { border-left-color: #4CAF50; } 
+.note.file-note.yellow { border-left-color: #FFC107; } 
+
+/* Imagen de Nota */
+.note-image {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+    margin: 10px 0;
+    display: block;
+}
+
+/* ================================================= */
+/* GRABADORA DE VOZ (MODAL) */
 /* ================================================= */
 .voice-recorder {
     background: var(--bg-secondary);
@@ -167,6 +393,7 @@ h1 {
     background: linear-gradient(to top, #FF6B6B, #FF8E8E);
     border-radius: 3px;
     transition: height 0.1s ease;
+    min-height: 5px; /* Altura mínima para que se vea */
 }
 
 .recorder-visualizer.recording .bar {
@@ -198,6 +425,7 @@ h1 {
     flex-wrap: wrap;
 }
 
+/* Estilos de botones de la grabadora */
 .record-btn, .stop-btn, .play-btn, .save-btn, .cancel-btn {
     padding: 12px 20px;
     border: none;
@@ -209,55 +437,24 @@ h1 {
     min-width: 120px;
 }
 
-.record-btn {
-    background: #FF6B6B;
-    color: white;
-}
+.record-btn { background: #FF6B6B; color: white; }
+.record-btn:hover:not(:disabled) { background: #FF5252; transform: translateY(-2px); }
 
-.record-btn:hover:not(:disabled) {
-    background: #FF5252;
-    transform: translateY(-2px);
-}
+.stop-btn { background: #4CAF50; color: white; }
+.stop-btn:hover:not(:disabled) { background: #45a049; transform: translateY(-2px); }
 
-.stop-btn {
-    background: #4CAF50;
-    color: white;
-}
+.play-btn { background: #2196F3; color: white; }
+.play-btn:hover:not(:disabled) { background: #1976D2; transform: translateY(-2px); }
 
-.stop-btn:hover:not(:disabled) {
-    background: #45a049;
-    transform: translateY(-2px);
-}
-
-.play-btn {
-    background: #2196F3;
-    color: white;
-}
-
-.play-btn:hover:not(:disabled) {
-    background: #1976D2;
-    transform: translateY(-2px);
-}
-
-.save-btn {
-    background: #FF9800;
-    color: white;
-}
-
-.save-btn:hover:not(:disabled) {
-    background: #F57C00;
-    transform: translateY(-2px);
-}
+.save-btn { background: #FF9800; color: white; }
+.save-btn:hover:not(:disabled) { background: #F57C00; transform: translateY(-2px); }
 
 .cancel-btn {
     background: var(--bg-primary);
     color: var(--text-primary);
     border: 2px solid var(--border-color);
 }
-
-.cancel-btn:hover {
-    background: var(--border-color);
-}
+.cancel-btn:hover { background: var(--border-color); }
 
 .record-btn:disabled, .stop-btn:disabled, .play-btn:disabled, .save-btn:disabled {
     opacity: 0.6;
@@ -265,8 +462,17 @@ h1 {
     transform: none;
 }
 
+#audioPreview {
+    width: 100%;
+    height: 40px;
+    border-radius: 20px;
+    margin-top: 15px;
+    display: none; /* JS lo muestra cuando hay un audio */
+}
+
+
 /* ================================================= */
-/* VISTA PREVIA DE ARCHIVOS */
+/* GESTIÓN Y VISTA PREVIA DE ARCHIVOS (MODAL) */
 /* ================================================= */
 .file-types-info {
     margin: 8px 0;
@@ -289,6 +495,12 @@ h1 {
     background: var(--bg-primary);
     border-radius: 10px;
     border: 1px solid var(--border-color);
+    transition: all 0.3s ease;
+}
+
+.file-preview.new-file {
+    /* Destaca los archivos recién cargados */
+    border: 2px dashed #FF9800; 
 }
 
 .file-icon {
@@ -326,14 +538,16 @@ h1 {
     display: flex;
     align-items: center;
     justify-content: center;
+    flex-shrink: 0;
 }
 
 .file-remove:hover {
     background: #d32f2f;
 }
 
+
 /* ================================================= */
-/* NOTAS CON ARCHIVOS Y VOZ */
+/* NOTAS CON ARCHIVOS Y VOZ (VISUALIZACIÓN EN LA TARJETA DE NOTA) */
 /* ================================================= */
 .note-attachments {
     margin-top: 15px;
@@ -361,16 +575,21 @@ h1 {
     font-size: 1.2rem;
     width: 30px;
     text-align: center;
+    flex-shrink: 0;
 }
 
 .attachment-info {
     flex: 1;
+    min-width: 0;
 }
 
 .attachment-name {
     font-weight: 600;
     color: var(--text-primary);
     font-size: 0.9rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .attachment-size {
@@ -388,6 +607,7 @@ h1 {
     cursor: pointer;
     text-decoration: none;
     display: inline-block;
+    flex-shrink: 0;
 }
 
 .attachment-download:hover {
@@ -405,194 +625,9 @@ h1 {
     border-radius: 20px;
 }
 
-.note-type-badge {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    background: rgba(0,0,0,0.7);
-    color: white;
-    padding: 4px 8px;
-    border-radius: 12px;
-    font-size: 0.7rem;
-    font-weight: 600;
-}
-
-.note.voice-note {
-    border-left-color: #FF6B6B;
-}
-
-.note.file-note {
-    border-left-color: #2196F3;
-}
-
 /* ================================================= */
-/* ESTADÍSTICAS MEJORADAS */
+/* MODAL GENERAL */
 /* ================================================= */
-.notes-stats {
-    display: flex;
-    gap: 15px;
-    margin-bottom: 20px;
-    font-size: 0.9rem;
-    color: var(--text-secondary);
-    flex-wrap: wrap;
-}
-
-.notes-stats span {
-    background: var(--bg-secondary);
-    padding: 8px 15px;
-    border-radius: 15px;
-    box-shadow: var(--shadow);
-    display: flex;
-    align-items: center;
-    gap: 5px;
-}
-
-/* ================================================= */
-/* RESTANTES ESTILOS (se mantienen igual) */
-/* ================================================= */
-.search-container {
-    background: var(--bg-secondary);
-    padding: 20px;
-    border-radius: 15px;
-    margin-bottom: 20px;
-    box-shadow: var(--shadow);
-}
-
-#searchInput {
-    width: 100%;
-    padding: 15px 20px;
-    border: 2px solid var(--border-color);
-    border-radius: 25px;
-    font-size: 1rem;
-    background: var(--bg-primary);
-    color: var(--text-primary);
-    margin-bottom: 15px;
-    transition: all 0.3s ease;
-}
-
-.search-filters {
-    display: flex;
-    gap: 15px;
-    align-items: center;
-    flex-wrap: wrap;
-}
-
-#categoryFilter {
-    padding: 10px 15px;
-    border: 2px solid var(--border-color);
-    border-radius: 10px;
-    background: var(--bg-primary);
-    color: var(--text-primary);
-    font-size: 0.9rem;
-    flex: 1;
-    min-width: 200px;
-}
-
-.clear-btn {
-    background: var(--bg-primary);
-    color: var(--text-primary);
-    border: 2px solid var(--border-color);
-    padding: 10px 20px;
-    border-radius: 10px;
-    cursor: pointer;
-    font-size: 0.9rem;
-    transition: all 0.3s ease;
-}
-
-.notes-container {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 25px;
-}
-
-.note {
-    background: var(--bg-secondary);
-    border-radius: 15px;
-    padding: 20px;
-    box-shadow: var(--shadow);
-    border-left: 5px solid #4CAF50;
-    transition: all 0.3s ease;
-    position: relative;
-    overflow: hidden;
-    animation: slideInUp 0.5s ease;
-}
-
-@keyframes slideInUp {
-    from {
-        opacity: 0;
-        transform: translateY(30px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-.note h3 {
-    margin-bottom: 12px;
-    color: var(--text-primary);
-    font-size: 1.3rem;
-    line-height: 1.4;
-    padding-right: 60px;
-}
-
-.note p {
-    color: var(--text-secondary);
-    line-height: 1.6;
-    margin-bottom: 10px;
-}
-
-.note-meta {
-    margin-top: 15px;
-    font-size: 0.8rem;
-    color: var(--text-secondary);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.note-actions {
-    margin-top: 15px;
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
-}
-
-.note-actions button {
-    padding: 8px 15px;
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    font-size: 0.85rem;
-    display: flex;
-    align-items: center;
-    gap: 5px;
-}
-
-.favorite-btn {
-    background: transparent;
-    color: var(--text-secondary);
-    border: 1px solid var(--border-color) !important;
-}
-
-.favorite-btn.active {
-    background: #ffd700;
-    color: #333;
-    border-color: #ffd700 !important;
-}
-
-.edit-btn {
-    background: #007bff;
-    color: white;
-}
-
-.delete-btn {
-    background: #f44336;
-    color: white;
-}
-
-/* Modal styles remain the same */
 .modal {
     display: none;
     position: fixed;
@@ -603,6 +638,7 @@ h1 {
     height: 100%;
     background-color: rgba(0,0,0,0.5);
     backdrop-filter: blur(5px);
+    overflow: auto; /* Para modales grandes */
 }
 
 .modal-content {
@@ -614,6 +650,12 @@ h1 {
     max-width: 600px;
     box-shadow: 0 20px 60px rgba(0,0,0,0.3);
     position: relative;
+    animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
 }
 
 .close {
@@ -627,11 +669,15 @@ h1 {
     right: 20px;
 }
 
+.close:hover {
+    color: var(--text-primary);
+}
+
 .modal-section {
     margin: 20px 0;
 }
 
-#noteTitle, #noteContent, #noteFiles {
+#noteTitle, #noteContent, #noteCategory {
     width: 100%;
     padding: 15px;
     margin: 10px 0;
@@ -640,8 +686,19 @@ h1 {
     font-size: 1rem;
     background: var(--bg-primary);
     color: var(--text-primary);
+    transition: border-color 0.3s;
 }
 
+#noteContent {
+    resize: vertical;
+}
+
+#noteTitle:focus, #noteContent:focus, #noteCategory:focus {
+    border-color: #4CAF50;
+    outline: none;
+}
+
+/* Selector de Color */
 .color-selector {
     display: flex;
     gap: 15px;
@@ -663,26 +720,82 @@ h1 {
     justify-content: center;
 }
 
+.color-option.active {
+    border: 3px solid #000000; /* Borde oscuro para indicar selección */
+}
+
+.dark-mode .color-option.active {
+    border: 3px solid #ffffff; /* Borde claro en modo oscuro */
+}
+
 .modal-actions {
     text-align: center;
     margin-top: 25px;
 }
 
-.save-btn {
-    background: linear-gradient(135deg, #4CAF50, #45a049);
-    color: white;
-    border: none;
+.modal-actions .primary-btn {
     padding: 15px 30px;
-    border-radius: 25px;
-    cursor: pointer;
     font-size: 1.1rem;
-    font-weight: 600;
-    transition: all 0.3s ease;
     width: 100%;
 }
 
-/* Responsive */
+/* ================================================= */
+/* ESTADO VACÍO (EMPTY STATE) */
+/* ================================================= */
+.empty-state {
+    text-align: center;
+    padding: 50px 20px;
+    background: var(--bg-secondary);
+    border-radius: 20px;
+    box-shadow: var(--shadow);
+    margin-top: 50px;
+    max-width: 500px;
+    margin-left: auto;
+    margin-right: auto;
+    grid-column: 1 / -1; /* Ocupa todo el ancho en el grid */
+}
+
+.empty-state .icon {
+    font-size: 4rem;
+    margin-bottom: 15px;
+}
+
+.empty-state h3 {
+    font-size: 1.8rem;
+    color: var(--text-primary);
+    margin-bottom: 10px;
+}
+
+.empty-state p {
+    color: var(--text-secondary);
+    margin-bottom: 25px;
+}
+
+.empty-state button {
+    /* Estilo de botón primario (azul) para el Empty State */
+    background: linear-gradient(135deg, #2196F3, #1976D2);
+    color: white;
+    border: none;
+    padding: 12px 25px;
+    border-radius: 25px;
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.empty-state button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+}
+
+/* ================================================= */
+/* RESPONSIVE DESIGN */
+/* ================================================= */
 @media (max-width: 768px) {
+    body {
+        padding: 15px;
+    }
     .header-top {
         flex-direction: column;
         text-align: center;
@@ -705,16 +818,34 @@ h1 {
     .notes-container {
         grid-template-columns: 1fr;
     }
+    
+    .notes-stats {
+        justify-content: center;
+    }
 }
 
 @media (max-width: 480px) {
     .notes-stats {
         flex-direction: column;
-        align-items: center;
+        align-items: stretch;
     }
     
     .notes-stats span {
         width: 100%;
         justify-content: center;
+    }
+
+    .search-filters {
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    #categoryFilter, .clear-btn {
+        width: 100%;
+        min-width: unset;
+    }
+    
+    .modal-content {
+        margin: 10% auto;
     }
 }

@@ -1,856 +1,761 @@
-// ==================================================
-// Mis Notas App - Con Grabación de Voz y Archivos
-// ==================================================
+document.addEventListener('DOMContentLoaded', () => {
+    // =================================================
+    // 1. CONFIGURACIÓN DE ELEMENTOS DEL DOM
+    // =================================================
+    const elements = {
+        // Controles de la App
+        themeToggleBtn: document.getElementById('themeToggleBtn'),
+        openModalBtn: document.getElementById('openModalBtn'),
+        openVoiceModalBtn: document.getElementById('openVoiceModalBtn'),
+        notesContainer: document.getElementById('notesContainer'),
+        emptyState: document.getElementById('emptyState'),
+        emptyStateCreateBtn: document.getElementById('emptyStateCreateBtn'),
 
-// Configuración de Firebase
-const firebaseConfig = {
-    apiKey: "AIzaSyAom3LUnJQWK8t9h0G1mftIvClyPDiG1A",
-    authDomain: "mis-notas-app-e87a2.firebaseapp.com",
-    projectId: "mis-notas-app-e87a2",
-    storageBucket: "mis-notas-app-e87a2.firebasestorage.app",
-    messagingSenderId: "363846734339",
-    appId: "1:363846734339:web:a27ac4eb966ed56442b436"
-};
+        // Estadísticas
+        totalNotesCount: document.getElementById('totalNotesCount'),
+        favoriteNotesCount: document.getElementById('favoriteNotesCount'),
+        fileNotesCount: document.getElementById('fileNotesCount'),
+        voiceNotesCount: document.getElementById('voiceNotesCount'),
 
-// Variables globales
-let db = null;
-let storage = null;
-let appInstance = null;
-let favorites = JSON.parse(localStorage.getItem('noteFavorites')) || {};
-let mediaRecorder = null;
-let audioChunks = [];
-let recordingTimer = null;
-let recordingStartTime = null;
+        // Búsqueda y Filtros
+        searchInput: document.getElementById('searchInput'),
+        categoryFilter: document.getElementById('categoryFilter'),
+        clearFiltersBtn: document.getElementById('clearFiltersBtn'),
+        categoriesList: document.getElementById('categoriesList'),
 
-// Inicializar Firebase de forma segura
-function initializeFirebase() {
-    try {
-        if (typeof firebase === 'undefined') {
-            console.error('❌ Firebase no está cargado');
-            showError('Error: Firebase no está disponible');
-            return false;
+        // Modal de Nota (CRUD)
+        noteModal: document.getElementById('noteModal'),
+        closeModalBtn: document.getElementById('closeModalBtn'),
+        modalTitle: document.getElementById('modalTitle'),
+        noteForm: document.getElementById('noteForm'),
+        noteTitle: document.getElementById('noteTitle'),
+        noteContent: document.getElementById('noteContent'),
+        noteCategory: document.getElementById('noteCategory'),
+        colorSelector: document.getElementById('colorSelector'),
+        filesInput: document.getElementById('noteFiles'),
+        filesPreview: document.getElementById('filesPreview'),
+        existingFilesPreview: document.getElementById('existingFilesPreview'),
+        voiceAttachmentSection: document.getElementById('voiceAttachmentSection'),
+        existingVoiceAttachment: document.getElementById('existingVoiceAttachment'),
+        removeExistingVoiceBtn: document.getElementById('removeExistingVoiceBtn'),
+        saveNoteBtn: document.getElementById('saveNoteBtn'),
+        
+        // Modal de Grabadora de Voz
+        voiceRecorderModal: document.getElementById('voiceRecorderModal'),
+        closeVoiceModalBtn: document.getElementById('closeVoiceModalBtn'),
+        recordBtn: document.getElementById('recordBtn'),
+        stopBtn: document.getElementById('stopBtn'),
+        playBtn: document.getElementById('playBtn'),
+        saveVoiceBtn: document.getElementById('saveVoiceBtn'),
+        cancelVoiceBtn: document.getElementById('cancelVoiceBtn'),
+        recorderTime: document.getElementById('recorderTime'),
+        recorderStatus: document.getElementById('recorderStatus'),
+        audioPreview: document.getElementById('audioPreview'),
+        audioVisualizer: document.getElementById('audioVisualizer'),
+    };
+
+    // =================================================
+    // 2. VARIABLES GLOBALES DE LA APLICACIÓN
+    // =================================================
+    let notes = JSON.parse(localStorage.getItem('notes')) || [];
+    let isEditing = false;
+    let currentNoteId = null;
+    let tempFiles = []; // Archivos seleccionados en el modal
+    let existingFiles = []; // Archivos existentes en la nota (para edición)
+    
+    // Variables para la Grabadora de Voz
+    let mediaRecorder;
+    let audioChunks = [];
+    let audioBlob = null;
+    let audioUrl = null;
+    let timerInterval;
+    let seconds = 0;
+
+    // =================================================
+    // 3. FUNCIONES DE UTILIDAD (ALMACENAMIENTO)
+    // =================================================
+
+    /** Guarda las notas en localStorage */
+    const saveNotes = () => {
+        localStorage.setItem('notes', JSON.stringify(notes));
+        updateStats();
+        renderNotes(notes);
+        updateCategoryFilters();
+    };
+
+    /** Genera un ID único (simulación simple) */
+    const generateId = () => Date.now().toString();
+
+    // =================================================
+    // 4. MANEJO DE NOTAS (CRUD y Renderizado)
+    // =================================================
+
+    /** Crea el HTML para una nota individual */
+    const createNoteElement = (note) => {
+        const noteElement = document.createElement('div');
+        noteElement.className = `note ${note.color} ${note.isVoiceNote ? 'voice-note' : ''} ${note.files.length > 0 ? 'file-note' : ''}`;
+        noteElement.setAttribute('data-id', note.id);
+
+        // Contenido principal de la nota
+        let contentHTML = `
+            <h3>${note.title || 'Sin Título'}</h3>
+            <p>${note.content.substring(0, 150)}${note.content.length > 150 ? '...' : ''}</p>
+        `;
+
+        // Badge de Tipo de Nota
+        if (note.isVoiceNote) {
+            contentHTML += `<span class="note-type-badge"><i class="fas fa-microphone"></i> Voz</span>`;
+        } else if (note.files.length > 0) {
+             contentHTML += `<span class="note-type-badge"><i class="fas fa-file-alt"></i> Archivo</span>`;
         }
 
-        firebase.initializeApp(firebaseConfig);
-        db = firebase.firestore();
-        storage = firebase.storage();
-        
-        console.log('✅ Firebase inicializado correctamente');
-        return true;
-    } catch (error) {
-        console.error('❌ Error inicializando Firebase:', error);
-        showError('Error de conexión con la base de datos');
-        return false;
-    }
-}
+        // Archivos Adjuntos (incluye audio)
+        if (note.files.length > 0 || note.isVoiceNote) {
+            contentHTML += `<div class="note-attachments">`;
+            
+            // Audio (si existe)
+            if (note.isVoiceNote && note.voiceData) {
+                contentHTML += `
+                    <div class="attachment voice-attachment">
+                        <div class="attachment-icon" style="color: #FF6B6B;"><i class="fas fa-volume-up"></i></div>
+                        <div class="attachment-info">
+                            <div class="attachment-name">Nota de Voz</div>
+                            <div class="attachment-size">${formatTime(note.duration || 0)}</div>
+                        </div>
+                        <div class="voice-player">
+                            <audio controls src="${note.voiceData}"></audio>
+                        </div>
+                    </div>
+                `;
+            }
 
-// Mostrar errores amigables
-function showError(message) {
-    const container = document.getElementById('notesContainer');
-    if (container) {
-        container.innerHTML = `
-            <div class="error-message">
-                <h3>😕 Algo salió mal</h3>
-                <p>${message}</p>
-                <button onclick="location.reload()">Reintentar</button>
+            // Archivos normales
+            note.files.forEach(file => {
+                const icon = getFileIcon(file.type);
+                contentHTML += `
+                    <div class="attachment">
+                        <div class="attachment-icon" style="color: ${icon.color};"><i class="${icon.class}"></i></div>
+                        <div class="attachment-info">
+                            <div class="attachment-name">${file.name}</div>
+                            <div class="attachment-size">${file.size}</div>
+                        </div>
+                        <a href="${file.data}" download="${file.name}" class="attachment-download" title="Descargar">
+                            <i class="fas fa-download"></i>
+                        </a>
+                    </div>
+                `;
+            });
+
+            contentHTML += `</div>`;
+        }
+
+        // Meta y Acciones
+        contentHTML += `
+            <div class="note-meta">
+                <span><i class="fas fa-tag"></i> ${note.category}</span>
+                <span><i class="fas fa-calendar-alt"></i> ${new Date(note.createdAt).toLocaleDateString()}</span>
+            </div>
+            <div class="note-actions">
+                <button class="favorite-btn ${note.isFavorite ? 'active' : ''}" data-id="${note.id}" title="Marcar como Favorita">
+                    <i class="${note.isFavorite ? 'fas' : 'far'} fa-star"></i>
+                </button>
+                <button class="edit-btn" data-id="${note.id}" title="Editar Nota">
+                    <i class="fas fa-edit"></i> Editar
+                </button>
+                <button class="delete-btn" data-id="${note.id}" title="Eliminar Nota">
+                    <i class="fas fa-trash"></i> Eliminar
+                </button>
             </div>
         `;
-    }
-}
 
-// Función para subir archivos a Firebase Storage
-async function uploadFile(file, noteId) {
-    return new Promise((resolve, reject) => {
-        const fileExtension = file.name.split('.').pop();
-        const fileName = `${noteId}/${Date.now()}_${file.name}`;
-        const fileRef = storage.ref().child(fileName);
-        
-        const uploadTask = fileRef.put(file);
-        
-        uploadTask.on('state_changed',
-            (snapshot) => {
-                // Progreso de subida
-                const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                console.log(`Subiendo archivo: ${progress}%`);
-            },
-            (error) => {
-                reject(error);
-            },
-            () => {
-                uploadTask.snapshot.ref.getDownloadURL().then((downloadURL) => {
-                    resolve({
-                        url: downloadURL,
-                        name: file.name,
-                        type: file.type,
-                        size: file.size,
-                        extension: fileExtension
-                    });
-                });
-            }
-        );
-    });
-}
-
-// Función para obtener icono según tipo de archivo
-function getFileIcon(fileType, extension) {
-    if (fileType.startsWith('image/')) return '🖼️';
-    if (fileType.includes('pdf')) return '📄';
-    if (fileType.includes('audio')) return '🎵';
-    if (extension === 'doc' || extension === 'docx') return '📝';
-    if (extension === 'txt') return '📄';
-    return '📎';
-}
-
-// Función para formatear tamaño de archivo
-function formatFileSize(bytes) {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-}
-
-// Función para formatear fecha de manera amigable
-function formatNoteTimestamp(timestamp) {
-    if (!timestamp) return 'Sin fecha';
+        noteElement.innerHTML = contentHTML;
+        return noteElement;
+    };
     
-    try {
-        let date;
-        if (timestamp && typeof timestamp.toDate === 'function') {
-            date = timestamp.toDate();
-        } else if (timestamp instanceof Date) {
-            date = timestamp;
+    /** Renderiza la lista de notas */
+    const renderNotes = (filteredNotes = notes) => {
+        elements.notesContainer.innerHTML = '';
+
+        if (filteredNotes.length === 0) {
+            elements.emptyState.style.display = 'block';
         } else {
-            return 'Recién guardada';
+            elements.emptyState.style.display = 'none';
+            filteredNotes.forEach(note => {
+                elements.notesContainer.appendChild(createNoteElement(note));
+            });
+        }
+    };
+
+    /** Guarda/Actualiza una nota */
+    const saveNote = (e) => {
+        e.preventDefault();
+
+        const title = elements.noteTitle.value.trim();
+        const content = elements.noteContent.value.trim();
+        const category = elements.noteCategory.value.trim() || 'General';
+        const color = elements.colorSelector.querySelector('.active').dataset.color;
+
+        if (!title && !content && tempFiles.length === 0 && !audioBlob) {
+            alert('La nota no puede estar vacía. Añade un título, contenido, o adjuntos.');
+            return;
         }
 
-        const now = new Date();
-        const diffMs = now - date;
-        const diffMins = Math.floor(diffMs / (1000 * 60));
-        const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-        const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-        if (diffMins < 1) return 'Hace un momento';
-        if (diffMins < 60) return `Hace ${diffMins} minuto${diffMins > 1 ? 's' : ''}`;
-        if (diffHours < 24) return `Hace ${diffHours} hora${diffHours > 1 ? 's' : ''}`;
-        if (diffDays === 1) return 'Ayer';
-        if (diffDays < 7) return `Hace ${diffDays} día${diffDays > 1 ? 's' : ''}`;
-
-        return date.toLocaleDateString('es-MX', { 
-            year: 'numeric', 
-            month: 'short', 
-            day: 'numeric',
-            hour: '2-digit', 
-            minute: '2-digit' 
-        });
-    } catch (error) {
-        return 'Fecha desconocida';
-    }
-}
-
-// Clase Principal de la Aplicación
-class NotesApp {
-    constructor() {
-        this.notes = [];
-        this.filteredNotes = [];
-        this.editingId = null;
-        this.isOnline = navigator.onLine;
-        this.searchTerm = '';
-        this.currentCategory = 'all';
-        this.recordedAudio = null;
-        this.selectedFiles = [];
-        this.init();
-    }
-
-    init() {
-        console.log('🚀 Iniciando Mis Notas App con Voz y Archivos...');
-        this.setupEventListeners();
-        this.setupNetworkDetection();
-        this.checkServiceWorker();
-        this.loadTheme();
+        const newFiles = [...existingFiles, ...tempFiles.map(file => ({
+            name: file.name,
+            size: file.size,
+            data: file.data,
+            type: file.type.split('/')[0] // 'image', 'application', etc.
+        }))];
         
-        if (initializeFirebase()) {
-            this.loadNotes();
-        }
-    }
+        const noteData = {
+            title,
+            content,
+            category,
+            color,
+            isFavorite: isEditing ? notes.find(n => n.id === currentNoteId).isFavorite : false,
+            files: newFiles,
+            isVoiceNote: !!audioBlob, // Si hay audioBlob, es una nota de voz
+            voiceData: audioUrl,
+            duration: seconds,
+            createdAt: isEditing ? notes.find(n => n.id === currentNoteId).createdAt : Date.now(),
+        };
 
-    setupEventListeners() {
-        // Botones principales
-        this.safeAddEventListener('addNoteBtn', 'click', () => this.openModal());
-        this.safeAddEventListener('addVoiceNoteBtn', 'click', () => this.showVoiceRecorder());
-        
-        // Grabadora de voz
-        this.safeAddEventListener('startRecording', 'click', () => this.startRecording());
-        this.safeAddEventListener('stopRecording', 'click', () => this.stopRecording());
-        this.safeAddEventListener('playRecording', 'click', () => this.playRecording());
-        this.safeAddEventListener('saveRecording', 'click', () => this.saveVoiceNote());
-        this.safeAddEventListener('cancelRecording', 'click', () => this.hideVoiceRecorder());
-        
-        // Modal
-        this.safeAddEventListener('saveNoteBtn', 'click', () => this.saveNote());
-        this.safeAddEventListener('close', 'click', () => this.closeModal());
-        this.safeAddEventListener('noteFiles', 'change', (e) => this.handleFileSelect(e));
-        
-        // Búsqueda y filtros
-        this.safeAddEventListener('searchInput', 'input', (e) => {
-            this.searchTerm = e.target.value.toLowerCase();
-            this.filterNotes();
-        });
-        this.safeAddEventListener('categoryFilter', 'change', (e) => {
-            this.currentCategory = e.target.value;
-            this.filterNotes();
-        });
-        this.safeAddEventListener('clearSearch', 'click', () => this.clearSearch());
-        
-        // Tema
-        this.safeAddEventListener('themeToggle', 'click', () => this.toggleTheme());
-
-        // Cerrar modal al hacer clic fuera
-        document.addEventListener('click', (e) => {
-            const modal = document.getElementById('noteModal');
-            if (e.target === modal) this.closeModal();
-        });
-
-        // Tecla ESC para cerrar modal
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
-                this.closeModal();
-                this.hideVoiceRecorder();
+        if (isEditing) {
+            // Actualizar nota existente
+            const noteIndex = notes.findIndex(n => n.id === currentNoteId);
+            if (noteIndex !== -1) {
+                notes[noteIndex] = { ...notes[noteIndex], ...noteData };
             }
-        });
-
-        console.log('✅ Event listeners configurados');
-    }
-
-    // Método seguro para agregar event listeners
-    safeAddEventListener(elementId, event, handler) {
-        const element = document.getElementById(elementId);
-        if (element) {
-            element.addEventListener(event, handler);
         } else {
-            console.warn(`⚠️ Elemento no encontrado: ${elementId}`);
+            // Crear nueva nota
+            noteData.id = generateId();
+            notes.unshift(noteData); // Añadir al principio
         }
-    }
+
+        closeModal(elements.noteModal);
+        saveNotes();
+        resetModal();
+        resetVoiceRecorder();
+    };
 
     // =================================================
-    // SISTEMA DE GRABACIÓN DE VOZ
+    // 5. MANEJO DE MODALES
     // =================================================
-    async showVoiceRecorder() {
-        document.getElementById('voiceRecorder').style.display = 'block';
-        this.updateRecorderStatus('Preparado para grabar');
-        this.resetRecorder();
-    }
 
-    hideVoiceRecorder() {
-        document.getElementById('voiceRecorder').style.display = 'none';
-        this.stopRecording();
-        this.resetRecorder();
-    }
+    /** Abre un modal */
+    const openModal = (modalElement, title = 'Crear Nueva Nota') => {
+        modalElement.style.display = 'block';
+        elements.modalTitle.textContent = title;
+        document.body.style.overflow = 'hidden'; // Evita el scroll en el fondo
+    };
 
-    async startRecording() {
+    /** Cierra un modal */
+    const closeModal = (modalElement) => {
+        modalElement.style.display = 'none';
+        document.body.style.overflow = 'auto';
+        resetModal();
+    };
+
+    /** Limpia los campos del modal de nota */
+    const resetModal = () => {
+        elements.noteForm.reset();
+        isEditing = false;
+        currentNoteId = null;
+        tempFiles = [];
+        existingFiles = [];
+        elements.filesPreview.innerHTML = '';
+        elements.existingFilesPreview.innerHTML = '';
+        
+        // Reset de color
+        elements.colorSelector.querySelectorAll('.color-option').forEach(opt => {
+            opt.classList.remove('active');
+        });
+        elements.colorSelector.querySelector('[data-color="white"]').classList.add('active');
+
+        // Ocultar sección de voz en el modal de nota
+        elements.voiceAttachmentSection.style.display = 'none';
+        elements.existingVoiceAttachment.innerHTML = '';
+        audioBlob = null;
+        audioUrl = null;
+        seconds = 0;
+    };
+
+    /** Lógica para cargar nota en el modal de edición */
+    const loadNoteForEditing = (id) => {
+        const note = notes.find(n => n.id === id);
+        if (!note) return;
+
+        isEditing = true;
+        currentNoteId = id;
+
+        // Cargar datos principales
+        elements.noteTitle.value = note.title;
+        elements.noteContent.value = note.content;
+        elements.noteCategory.value = note.category;
+        
+        // Cargar color
+        elements.colorSelector.querySelectorAll('.color-option').forEach(opt => {
+            opt.classList.remove('active');
+        });
+        const colorOption = elements.colorSelector.querySelector(`[data-color="${note.color}"]`);
+        if (colorOption) colorOption.classList.add('active');
+        
+        // Cargar archivos existentes
+        existingFiles = note.files || [];
+        renderExistingFiles(existingFiles);
+
+        // Cargar nota de voz existente
+        if (note.isVoiceNote && note.voiceData) {
+            audioUrl = note.voiceData;
+            seconds = note.duration || 0;
+            audioBlob = true; // Solo para indicar que hay audio, el blob real no se guarda.
+            
+            elements.voiceAttachmentSection.style.display = 'block';
+            elements.removeExistingVoiceBtn.style.display = 'block';
+            
+            elements.existingVoiceAttachment.innerHTML = `
+                <div class="attachment-icon" style="color: #FF6B6B;"><i class="fas fa-volume-up"></i></div>
+                <div class="attachment-info">
+                    <div class="attachment-name">Nota de Voz Existente</div>
+                    <div class="attachment-size">${formatTime(note.duration || 0)}</div>
+                </div>
+                <div class="voice-player" style="margin-top: 0; flex: 1;">
+                    <audio controls src="${note.voiceData}"></audio>
+                </div>
+            `;
+        } else {
+            elements.voiceAttachmentSection.style.display = 'none';
+        }
+
+        openModal(elements.noteModal, 'Editar Nota');
+    };
+
+    /** Elimina una nota */
+    const deleteNote = (id) => {
+        if (confirm('¿Estás seguro de que quieres eliminar esta nota? Esta acción es irreversible.')) {
+            notes = notes.filter(note => note.id !== id);
+            saveNotes();
+        }
+    };
+
+    // =================================================
+    // 6. GESTIÓN DE ARCHIVOS
+    // =================================================
+
+    /** Obtiene el ícono y color basado en el tipo de archivo */
+    const getFileIcon = (fileType) => {
+        if (fileType.includes('image')) return { class: 'fas fa-image', color: '#007bff' };
+        if (fileType.includes('audio')) return { class: 'fas fa-music', color: '#FF6B6B' };
+        if (fileType.includes('video')) return { class: 'fas fa-video', color: '#9C27B0' };
+        if (fileType.includes('pdf')) return { class: 'fas fa-file-pdf', color: '#f44336' };
+        if (fileType.includes('document') || fileType.includes('text')) return { class: 'fas fa-file-alt', color: '#4CAF50' };
+        return { class: 'fas fa-file', color: '#666666' };
+    };
+    
+    /** Renderiza la previsualización de archivos existentes */
+    const renderExistingFiles = (files) => {
+        elements.existingFilesPreview.innerHTML = '';
+        if (files.length === 0) return;
+
+        files.forEach((file, index) => {
+            const icon = getFileIcon(file.type);
+            const preview = document.createElement('div');
+            preview.className = 'file-preview';
+            preview.innerHTML = `
+                <div class="file-icon" style="color: ${icon.color};"><i class="${icon.class}"></i></div>
+                <div class="file-info">
+                    <div class="file-name">${file.name} (Existente)</div>
+                    <div class="file-size">${file.size}</div>
+                </div>
+                <button type="button" class="file-remove" data-index="${index}" data-type="existing" title="Eliminar archivo existente">
+                    &times;
+                </button>
+            `;
+            elements.existingFilesPreview.appendChild(preview);
+        });
+    };
+
+    /** Renderiza la previsualización de archivos temporales (nuevos) */
+    const renderTempFiles = () => {
+        elements.filesPreview.innerHTML = '';
+        if (tempFiles.length === 0) return;
+
+        tempFiles.forEach((file, index) => {
+            const icon = getFileIcon(file.type);
+            const preview = document.createElement('div');
+            preview.className = 'file-preview new-file';
+            preview.innerHTML = `
+                <div class="file-icon" style="color: ${icon.color};"><i class="${icon.class}"></i></div>
+                <div class="file-info">
+                    <div class="file-name">${file.name}</div>
+                    <div class="file-size">${(file.file.size / 1024 / 1024).toFixed(2)} MB</div>
+                </div>
+                <button type="button" class="file-remove" data-index="${index}" data-type="temp" title="Quitar archivo">
+                    &times;
+                </button>
+            `;
+            elements.filesPreview.appendChild(preview);
+        });
+    };
+
+    /** Maneja la selección de archivos del input */
+    const handleFileSelection = (e) => {
+        const files = Array.from(e.target.files);
+        const maxFiles = 5;
+        const maxFileSize = 2 * 1024 * 1024; // 2MB
+
+        if (files.length + existingFiles.length + tempFiles.length > maxFiles) {
+            alert(`Solo puedes adjuntar un máximo de ${maxFiles} archivos en total.`);
+            e.target.value = ''; // Limpia el input
+            return;
+        }
+
+        files.forEach(file => {
+            if (file.size > maxFileSize) {
+                alert(`El archivo "${file.name}" excede el límite de 2MB y será omitido.`);
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                tempFiles.push({
+                    name: file.name,
+                    size: (file.size / 1024 / 1024).toFixed(2) + ' MB',
+                    data: event.target.result,
+                    type: file.type,
+                    file: file
+                });
+                renderTempFiles();
+            };
+            reader.readAsDataURL(file);
+        });
+        
+        // Limpia el input para permitir seleccionar los mismos archivos de nuevo si el usuario lo desea
+        e.target.value = ''; 
+    };
+
+    // =================================================
+    // 7. GRABADORA DE VOZ
+    // =================================================
+
+    /** Formatea segundos a MM:SS */
+    const formatTime = (totalSeconds) => {
+        const min = Math.floor(totalSeconds / 60);
+        const sec = totalSeconds % 60;
+        return `${min.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
+    };
+
+    /** Inicia el temporizador de grabación */
+    const startTimer = () => {
+        seconds = 0;
+        elements.recorderTime.textContent = formatTime(seconds);
+        timerInterval = setInterval(() => {
+            seconds++;
+            elements.recorderTime.textContent = formatTime(seconds);
+        }, 1000);
+    };
+
+    /** Detiene el temporizador */
+    const stopTimer = () => {
+        clearInterval(timerInterval);
+    };
+
+    /** Reinicia el estado de la grabadora */
+    const resetVoiceRecorder = () => {
+        stopTimer();
+        audioChunks = [];
+        audioBlob = null;
+        audioUrl = null;
+        seconds = 0;
+        
+        elements.recorderTime.textContent = '00:00';
+        elements.recorderStatus.textContent = 'Listo para grabar';
+        elements.audioVisualizer.classList.remove('recording');
+        
+        elements.recordBtn.disabled = false;
+        elements.stopBtn.disabled = true;
+        elements.playBtn.disabled = true;
+        elements.saveVoiceBtn.disabled = true;
+        
+        elements.audioPreview.style.display = 'none';
+        elements.audioPreview.src = '';
+    };
+
+    /** Maneja el inicio de la grabación */
+    const startRecording = async () => {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            alert('Tu navegador no soporta la grabación de audio.');
+            return;
+        }
+
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             mediaRecorder = new MediaRecorder(stream);
-            audioChunks = [];
-
-            mediaRecorder.ondataavailable = (event) => {
+            
+            mediaRecorder.ondataavailable = event => {
                 audioChunks.push(event.data);
             };
 
             mediaRecorder.onstop = () => {
-                const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-                this.recordedAudio = audioBlob;
-                this.updateRecorderStatus('Grabación completada');
-                this.enablePlayback();
+                stopTimer();
+                // Detiene la pista de audio para liberar el micrófono
+                stream.getTracks().forEach(track => track.stop()); 
+                
+                audioBlob = new Blob(audioChunks, { 'type': 'audio/mp3' });
+                audioUrl = URL.createObjectURL(audioBlob);
+                
+                elements.audioPreview.src = audioUrl;
+                elements.audioPreview.style.display = 'block';
+                
+                elements.playBtn.disabled = false;
+                elements.saveVoiceBtn.disabled = false;
+                elements.recorderStatus.textContent = `Grabación finalizada (${formatTime(seconds)})`;
+                elements.audioVisualizer.classList.remove('recording');
             };
 
             mediaRecorder.start();
-            this.startRecordingTimer();
-            this.updateRecorderUI(true);
-            this.updateRecorderStatus('Grabando... 🎤');
+            startTimer();
+
+            elements.recorderStatus.textContent = 'Grabando...';
+            elements.audioVisualizer.classList.add('recording');
+            elements.recordBtn.disabled = true;
+            elements.stopBtn.disabled = false;
+            elements.playBtn.disabled = true;
+            elements.saveVoiceBtn.disabled = true;
 
         } catch (error) {
             console.error('Error al acceder al micrófono:', error);
-            this.updateRecorderStatus('Error: No se pudo acceder al micrófono');
+            alert('No se pudo acceder al micrófono. Asegúrate de otorgar los permisos necesarios.');
+            resetVoiceRecorder();
         }
-    }
+    };
 
-    stopRecording() {
+    /** Maneja la detención de la grabación */
+    const stopRecording = () => {
         if (mediaRecorder && mediaRecorder.state === 'recording') {
             mediaRecorder.stop();
-            mediaRecorder.stream.getTracks().forEach(track => track.stop());
-            this.stopRecordingTimer();
-            this.updateRecorderUI(false);
+            elements.stopBtn.disabled = true;
         }
-    }
+    };
 
-    playRecording() {
-        if (this.recordedAudio) {
-            const audioUrl = URL.createObjectURL(this.recordedAudio);
-            const audioPreview = document.getElementById('audioPreview');
-            audioPreview.src = audioUrl;
-            audioPreview.style.display = 'block';
-            audioPreview.play();
-        }
-    }
-
-    startRecordingTimer() {
-        recordingStartTime = Date.now();
-        recordingTimer = setInterval(() => {
-            const elapsed = Date.now() - recordingStartTime;
-            const minutes = Math.floor(elapsed / 60000);
-            const seconds = Math.floor((elapsed % 60000) / 1000);
-            document.getElementById('recordingTime').textContent = 
-                `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-        }, 1000);
-    }
-
-    stopRecordingTimer() {
-        if (recordingTimer) {
-            clearInterval(recordingTimer);
-            recordingTimer = null;
-        }
-    }
-
-    updateRecorderUI(isRecording) {
-        const visualizer = document.getElementById('visualizer');
-        const startBtn = document.getElementById('startRecording');
-        const stopBtn = document.getElementById('stopRecording');
-        const playBtn = document.getElementById('playRecording');
-        const saveBtn = document.getElementById('saveRecording');
-
-        if (isRecording) {
-            visualizer.classList.add('recording');
-            startBtn.disabled = true;
-            stopBtn.disabled = false;
-            playBtn.disabled = true;
-            saveBtn.disabled = true;
-        } else {
-            visualizer.classList.remove('recording');
-            startBtn.disabled = false;
-            stopBtn.disabled = true;
-            playBtn.disabled = false;
-            saveBtn.disabled = false;
-        }
-    }
-
-    enablePlayback() {
-        document.getElementById('playRecording').disabled = false;
-        document.getElementById('saveRecording').disabled = false;
-    }
-
-    updateRecorderStatus(message) {
-        document.getElementById('recorderStatus').textContent = message;
-    }
-
-    resetRecorder() {
-        this.recordedAudio = null;
-        document.getElementById('recordingTime').textContent = '00:00';
-        document.getElementById('audioPreview').style.display = 'none';
-        document.getElementById('audioPreview').src = '';
-        this.updateRecorderUI(false);
-    }
-
-    async saveVoiceNote() {
-        if (!this.recordedAudio) {
-            alert('No hay grabación para guardar');
+    /** Simula el guardado de la nota de voz como nota de texto */
+    const saveVoiceNote = () => {
+        if (!audioBlob) {
+            alert('No hay audio para guardar.');
             return;
         }
+        
+        // Cierra el modal de la grabadora
+        closeModal(elements.voiceRecorderModal);
+        
+        // Abre el modal de nota para añadir título y metadatos
+        openModal(elements.noteModal, 'Guardar Nota de Voz');
+        
+        // Pre-rellena campos
+        elements.noteTitle.value = `Nota de Voz - ${new Date().toLocaleString()}`;
+        elements.noteContent.value = `Duración: ${formatTime(seconds)}. Añade cualquier texto adicional aquí.`;
+        
+        // Muestra la sección de voz en el modal de nota
+        elements.voiceAttachmentSection.style.display = 'block';
+        elements.removeExistingVoiceBtn.style.display = 'block';
+        
+        // Renderiza el audio en el modal de nota para previsualización
+        elements.existingVoiceAttachment.innerHTML = `
+            <div class="attachment-icon" style="color: #FF6B6B;"><i class="fas fa-volume-up"></i></div>
+            <div class="attachment-info">
+                <div class="attachment-name">Grabación de Voz</div>
+                <div class="attachment-size">${formatTime(seconds)}</div>
+            </div>
+            <div class="voice-player" style="margin-top: 0; flex: 1;">
+                <audio controls src="${audioUrl}"></audio>
+            </div>
+        `;
 
-        const title = prompt('Título para la nota de voz:', `Nota de voz ${new Date().toLocaleString()}`);
-        if (!title) return;
+        // El guardado final ocurrirá cuando se presione 'Guardar Nota' en el modal de nota
+    };
+    
+    // =================================================
+    // 8. MANEJO DE EVENTOS
+    // =================================================
+    
+    // Eventos de la App
+    elements.openModalBtn.addEventListener('click', () => openModal(elements.noteModal));
+    elements.closeModalBtn.addEventListener('click', () => closeModal(elements.noteModal));
+    elements.emptyStateCreateBtn.addEventListener('click', () => openModal(elements.noteModal));
+    elements.noteModal.addEventListener('click', (e) => {
+        if (e.target === elements.noteModal) closeModal(elements.noteModal);
+    });
+    
+    // Eventos del Modal de Nota
+    elements.noteForm.addEventListener('submit', saveNote);
+    elements.colorSelector.addEventListener('click', (e) => {
+        if (e.target.classList.contains('color-option')) {
+            elements.colorSelector.querySelector('.active').classList.remove('active');
+            e.target.classList.add('active');
+        }
+    });
+    elements.filesInput.addEventListener('change', handleFileSelection);
 
-        const saveBtn = document.getElementById('saveRecording');
-        const originalText = saveBtn.textContent;
-        saveBtn.disabled = true;
-        saveBtn.textContent = 'Guardando...';
+    // Evento de eliminación de archivo (temporal o existente)
+    elements.noteModal.addEventListener('click', (e) => {
+        if (e.target.classList.contains('file-remove')) {
+            const index = e.target.dataset.index;
+            const type = e.target.dataset.type;
 
-        try {
-            // Subir audio a Firebase Storage
-            const audioFile = new File([this.recordedAudio], `voice_note_${Date.now()}.wav`, { 
-                type: 'audio/wav' 
-            });
+            if (type === 'temp') {
+                tempFiles.splice(index, 1);
+                renderTempFiles();
+            } else if (type === 'existing') {
+                existingFiles.splice(index, 1);
+                renderExistingFiles(existingFiles);
+            }
+        }
+    });
+
+    // Evento para quitar nota de voz existente en modo edición
+    elements.removeExistingVoiceBtn.addEventListener('click', () => {
+        if (confirm('¿Deseas quitar la grabación de voz de esta nota?')) {
+            elements.voiceAttachmentSection.style.display = 'none';
+            elements.existingVoiceAttachment.innerHTML = '';
+            elements.removeExistingVoiceBtn.style.display = 'none';
+            audioBlob = null; // Quita la referencia al audio para que no se guarde
+            audioUrl = null;
+            seconds = 0;
+        }
+    });
+
+    // Eventos de la Grabadora de Voz
+    elements.openVoiceModalBtn.addEventListener('click', () => {
+        resetVoiceRecorder(); // Asegura el estado inicial
+        openModal(elements.voiceRecorderModal, 'Grabadora de Voz');
+    });
+    elements.closeVoiceModalBtn.addEventListener('click', () => closeModal(elements.voiceRecorderModal));
+    elements.voiceRecorderModal.addEventListener('click', (e) => {
+        if (e.target === elements.voiceRecorderModal) closeModal(elements.voiceRecorderModal);
+    });
+
+    elements.recordBtn.addEventListener('click', startRecording);
+    elements.stopBtn.addEventListener('click', stopRecording);
+    elements.saveVoiceBtn.addEventListener('click', saveVoiceNote);
+    elements.cancelVoiceBtn.addEventListener('click', () => {
+        stopRecording();
+        resetVoiceRecorder();
+        closeModal(elements.voiceRecorderModal);
+    });
+
+    // Eventos de las Notas (Delegación de eventos)
+    elements.notesContainer.addEventListener('click', (e) => {
+        const id = e.target.dataset.id || e.target.closest('button')?.dataset.id;
+        if (!id) return;
+
+        if (e.target.closest('.delete-btn')) {
+            deleteNote(id);
+        } else if (e.target.closest('.edit-btn')) {
+            loadNoteForEditing(id);
+        } else if (e.target.closest('.favorite-btn')) {
+            toggleFavorite(id);
+        }
+    });
+
+    // Eventos de Búsqueda y Filtro
+    elements.searchInput.addEventListener('input', filterNotes);
+    elements.categoryFilter.addEventListener('change', filterNotes);
+    elements.clearFiltersBtn.addEventListener('click', () => {
+        elements.searchInput.value = '';
+        elements.categoryFilter.value = 'all';
+        filterNotes();
+    });
+
+    // Evento de Modo Oscuro
+    elements.themeToggleBtn.addEventListener('click', toggleTheme);
+
+    // =================================================
+    // 9. FUNCIONES DE LÓGICA
+    // =================================================
+
+    /** Actualiza los contadores de estadísticas */
+    const updateStats = () => {
+        elements.totalNotesCount.textContent = notes.length;
+        elements.favoriteNotesCount.textContent = notes.filter(n => n.isFavorite).length;
+        elements.fileNotesCount.textContent = notes.filter(n => n.files && n.files.length > 0).length;
+        elements.voiceNotesCount.textContent = notes.filter(n => n.isVoiceNote).length;
+    };
+
+    /** Actualiza la lista de categorías para el filtro y el datalist */
+    const updateCategoryFilters = () => {
+        const allCategories = notes.map(n => n.category).filter(Boolean);
+        const uniqueCategories = [...new Set(allCategories)].sort();
+
+        // Actualizar Filtro (Select)
+        elements.categoryFilter.innerHTML = '<option value="all">Todas las Categorías</option>';
+        uniqueCategories.forEach(cat => {
+            const option = document.createElement('option');
+            option.value = cat;
+            option.textContent = cat;
+            elements.categoryFilter.appendChild(option);
+        });
+
+        // Actualizar Datalist (Input de Categoría en Modal)
+        elements.categoriesList.innerHTML = '';
+        uniqueCategories.forEach(cat => {
+            const option = document.createElement('option');
+            option.value = cat;
+            elements.categoriesList.appendChild(option);
+        });
+    };
+
+    /** Lógica de búsqueda y filtrado */
+    const filterNotes = () => {
+        const searchTerm = elements.searchInput.value.toLowerCase();
+        const categoryFilter = elements.categoryFilter.value;
+
+        const filtered = notes.filter(note => {
+            const titleMatch = note.title.toLowerCase().includes(searchTerm);
+            const contentMatch = note.content.toLowerCase().includes(searchTerm);
             
-            const noteData = {
-                title: title,
-                content: '🎤 Nota de voz',
-                color: 'blue',
-                type: 'voice',
-                timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-                lastUpdated: new Date().toISOString()
-            };
+            const categoryMatch = categoryFilter === 'all' || note.category === categoryFilter;
 
-            const result = await db.collection('notes').add(noteData);
-            const audioInfo = await uploadFile(audioFile, result.id);
-            
-            // Actualizar nota con URL del audio
-            await db.collection('notes').doc(result.id).update({
-                audioUrl: audioInfo.url,
-                audioDuration: Math.round(this.recordedAudio.size / 16000) // Estimación aproximada
-            });
-
-            this.hideVoiceRecorder();
-            this.loadNotes();
-            this.showStatus('Nota de voz guardada', 'success');
-
-        } catch (error) {
-            console.error('Error guardando nota de voz:', error);
-            alert('Error al guardar la nota de voz: ' + error.message);
-        } finally {
-            saveBtn.disabled = false;
-            saveBtn.textContent = originalText;
-        }
-    }
-
-    // =================================================
-    // SISTEMA DE ARCHIVOS
-    // =================================================
-    handleFileSelect(event) {
-        const files = Array.from(event.target.files);
-        const validFiles = files.filter(file => {
-            if (file.size > 5 * 1024 * 1024) {
-                alert(`El archivo ${file.name} es muy grande (máximo 5MB)`);
-                return false;
-            }
-            return true;
+            return (titleMatch || contentMatch) && categoryMatch;
         });
 
-        this.selectedFiles = [...this.selectedFiles, ...validFiles];
-        this.renderFilePreviews();
-    }
+        renderNotes(filtered);
+    };
 
-    renderFilePreviews() {
-        const container = document.getElementById('filesPreview');
-        container.innerHTML = '';
-
-        this.selectedFiles.forEach((file, index) => {
-            const extension = file.name.split('.').pop();
-            const preview = document.createElement('div');
-            preview.className = 'file-preview';
-            preview.innerHTML = `
-                <div class="file-icon">${getFileIcon(file.type, extension)}</div>
-                <div class="file-info">
-                    <div class="file-name">${file.name}</div>
-                    <div class="file-size">${formatFileSize(file.size)}</div>
-                </div>
-                <button class="file-remove" onclick="app.removeFile(${index})">×</button>
-            `;
-            container.appendChild(preview);
-        });
-    }
-
-    removeFile(index) {
-        this.selectedFiles.splice(index, 1);
-        this.renderFilePreviews();
-    }
-
-    // =================================================
-    // SISTEMA DE NOTAS MEJORADO
-    // =================================================
-    async saveNote() {
-        if (!this.isOnline) {
-            alert('⚠️ No hay conexión a internet. Conéctate para guardar notas.');
-            return;
-        }
-
-        const title = document.getElementById('noteTitle').value.trim();
-        const content = document.getElementById('noteContent').value.trim();
-        const selectedColor = document.querySelector('.color-option.active').dataset.color;
-
-        if (!title) {
-            alert('📝 Por favor, escribe un título para tu nota');
-            document.getElementById('noteTitle').focus();
-            return;
-        }
-
-        const saveBtn = document.getElementById('saveNoteBtn');
-        const originalText = saveBtn.textContent;
-        saveBtn.disabled = true;
-        saveBtn.textContent = 'Guardando...';
-
-        try {
-            const noteData = {
-                title: title,
-                content: content,
-                color: selectedColor,
-                type: 'text',
-                timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-                lastUpdated: new Date().toISOString()
-            };
-
-            // Determinar tipo de nota
-            if (this.selectedFiles.length > 0) {
-                noteData.type = 'file';
-                noteData.hasAttachments = true;
-            }
-
-            let noteId;
-            if (this.editingId) {
-                noteId = this.editingId;
-                await db.collection('notes').doc(noteId).update(noteData);
-                console.log('✅ Nota actualizada:', noteId);
-            } else {
-                const result = await db.collection('notes').add(noteData);
-                noteId = result.id;
-                console.log('✅ Nota creada:', noteId);
-            }
-
-            // Subir archivos si hay
-            if (this.selectedFiles.length > 0) {
-                saveBtn.textContent = 'Subiendo archivos...';
-                const uploadPromises = this.selectedFiles.map(file => uploadFile(file, noteId));
-                const uploadedFiles = await Promise.all(uploadPromises);
-                
-                await db.collection('notes').doc(noteId).update({
-                    attachments: uploadedFiles
-                });
-            }
-
-            this.closeModal();
-            this.selectedFiles = [];
-            this.loadNotes();
-            
-        } catch (error) {
-            console.error('❌ Error guardando nota:', error);
-            alert('❌ Error: ' + error.message);
-        } finally {
-            saveBtn.disabled = false;
-            saveBtn.textContent = originalText;
-        }
-    }
-
-    // =================================================
-    // RESTANTES MÉTODOS (se mantienen similares)
-    // =================================================
-    setupNetworkDetection() {
-        window.addEventListener('online', () => {
-            this.isOnline = true;
-            this.showStatus('Conectado', 'online');
-        });
-
-        window.addEventListener('offline', () => {
-            this.isOnline = false;
-            this.showStatus('Sin conexión', 'offline');
-        });
-    }
-
-    showStatus(message, type) {
-        // Implementación existente
-    }
-
-    async checkServiceWorker() {
-        if ('serviceWorker' in navigator) {
-            try {
-                const registration = await navigator.serviceWorker.register('./sw.js');
-                console.log('✅ Service Worker registrado:', registration);
-            } catch (error) {
-                console.error('❌ Error registrando Service Worker:', error);
-            }
-        }
-    }
-
-    loadTheme() {
-        const savedTheme = localStorage.getItem('theme') || 'light-mode';
-        document.body.className = savedTheme;
-        this.updateThemeButton(savedTheme);
-    }
-
-    toggleTheme() {
-        const currentTheme = document.body.className;
-        const newTheme = currentTheme === 'light-mode' ? 'dark-mode' : 'light-mode';
-        document.body.className = newTheme;
-        localStorage.setItem('theme', newTheme);
-        this.updateThemeButton(newTheme);
-    }
-
-    updateThemeButton(theme) {
-        const themeBtn = document.getElementById('themeToggle');
-        if (themeBtn) {
-            themeBtn.textContent = theme === 'light-mode' ? '🌙' : '☀️';
-        }
-    }
-
-    toggleFavorite(noteId) {
-        if (favorites[noteId]) {
-            delete favorites[noteId];
-        } else {
-            favorites[noteId] = true;
-        }
-        localStorage.setItem('noteFavorites', JSON.stringify(favorites));
-        this.filterNotes();
-    }
-
-    isFavorite(noteId) {
-        return !!favorites[noteId];
-    }
-
-    filterNotes() {
-        this.filteredNotes = this.notes.filter(note => {
-            const matchesSearch = !this.searchTerm || 
-                note.title.toLowerCase().includes(this.searchTerm) ||
-                note.content.toLowerCase().includes(this.searchTerm);
-
-            let matchesCategory = true;
-            if (this.currentCategory === 'favorites') {
-                matchesCategory = this.isFavorite(note.id);
-            } else if (this.currentCategory === 'voice') {
-                matchesCategory = note.type === 'voice' || note.audioUrl;
-            } else if (this.currentCategory === 'file') {
-                matchesCategory = note.type === 'file' || note.attachments;
-            } else if (this.currentCategory === 'image') {
-                matchesCategory = note.imageData || (note.attachments && 
-                    note.attachments.some(att => att.type.startsWith('image/')));
-            } else if (this.currentCategory === 'text') {
-                matchesCategory = note.type === 'text' && !note.attachments && !note.audioUrl;
-            } else if (this.currentCategory !== 'all') {
-                matchesCategory = note.color === this.currentCategory;
-            }
-
-            return matchesSearch && matchesCategory;
-        });
-
-        this.displayNotes();
-        this.updateStats();
-    }
-
-    updateStats() {
-        const totalNotes = this.notes.length;
-        const favoriteCount = Object.keys(favorites).length;
-        const voiceCount = this.notes.filter(note => note.type === 'voice' || note.audioUrl).length;
-        const filteredCount = this.filteredNotes.length;
-
-        document.getElementById('notesCount').textContent = `${filteredCount} notas`;
-        document.getElementById('favoritesCount').textContent = `${favoriteCount} favoritas`;
-        document.getElementById('voiceNotesCount').textContent = `${voiceCount} de voz`;
-    }
-
-    selectColor(selectedElement) {
-        document.querySelectorAll('.color-option').forEach(option => {
-            option.classList.remove('active');
-        });
-        selectedElement.classList.add('active');
-    }
-
-    openModal(note = null) {
-        const modal = document.getElementById('noteModal');
-        if (!modal) return;
-
-        modal.style.display = 'block';
-        document.getElementById('noteTitle').value = note ? note.title : '';
-        document.getElementById('noteContent').value = note ? note.content : '';
-        document.getElementById('noteFiles').value = '';
-        this.selectedFiles = [];
-        document.getElementById('filesPreview').innerHTML = '';
-
+    /** Marca/Desmarca una nota como favorita */
+    const toggleFavorite = (id) => {
+        const note = notes.find(n => n.id === id);
         if (note) {
-            this.editingId = note.id;
-            document.getElementById('modalTitle').textContent = 'Editar Nota';
-            document.getElementById('saveNoteBtn').textContent = '💾 Actualizar Nota';
-            
-            document.querySelectorAll('.color-option').forEach(option => {
-                option.classList.remove('active');
-                if (option.dataset.color === (note.color || 'white')) {
-                    option.classList.add('active');
-                }
-            });
+            note.isFavorite = !note.isFavorite;
+            saveNotes();
+        }
+    };
+    
+    /** Maneja el cambio de tema (Modo Oscuro/Claro) */
+    const toggleTheme = () => {
+        document.body.classList.toggle('dark-mode');
+        const isDarkMode = document.body.classList.contains('dark-mode');
+        localStorage.setItem('darkMode', isDarkMode);
+        
+        // Cambiar icono del botón
+        elements.themeToggleBtn.innerHTML = isDarkMode 
+            ? '<i class="fas fa-moon"></i>' 
+            : '<i class="fas fa-sun"></i>';
+    };
+
+    /** Inicializa la aplicación */
+    const init = () => {
+        // Cargar tema
+        if (localStorage.getItem('darkMode') === 'true') {
+            document.body.classList.add('dark-mode');
+            elements.themeToggleBtn.innerHTML = '<i class="fas fa-moon"></i>';
         } else {
-            this.editingId = null;
-            document.getElementById('modalTitle').textContent = 'Nueva Nota';
-            document.getElementById('saveNoteBtn').textContent = '💾 Guardar Nota';
-            
-            document.querySelectorAll('.color-option').forEach(option => {
-                option.classList.remove('active');
-                if (option.dataset.color === 'white') {
-                    option.classList.add('active');
-                }
-            });
+            elements.themeToggleBtn.innerHTML = '<i class="fas fa-sun"></i>';
         }
 
-        setTimeout(() => {
-            const titleInput = document.getElementById('noteTitle');
-            if (titleInput) titleInput.focus();
-        }, 100);
-    }
+        // Cargar y renderizar notas
+        saveNotes(); 
+    };
 
-    closeModal() {
-        const modal = document.getElementById('noteModal');
-        if (modal) {
-            modal.style.display = 'none';
-        }
-        this.editingId = null;
-        this.selectedFiles = [];
-    }
-
-    loadNotes() {
-        if (!db) {
-            console.error('Firestore no está disponible');
-            return;
-        }
-
-        db.collection('notes')
-            .orderBy('timestamp', 'desc')
-            .onSnapshot(snapshot => {
-                this.notes = snapshot.docs.map(doc => ({
-                    id: doc.id,
-                    ...doc.data()
-                }));
-                this.filterNotes();
-            }, error => {
-                console.error('❌ Error cargando notas:', error);
-                this.showStatus('Error cargando notas', 'error');
-            });
-    }
-
-    displayNotes() {
-        const container = document.getElementById('notesContainer');
-        if (!container) return;
-        
-        const notesToDisplay = this.filteredNotes.length > 0 ? this.filteredNotes : this.notes;
-        
-        if (notesToDisplay.length === 0) {
-            let message = '';
-            if (this.searchTerm || this.currentCategory !== 'all') {
-                message = `
-                    <div class="empty-state">
-                        <div class="icon">🔍</div>
-                        <h3>No se encontraron notas</h3>
-                        <p>No hay notas que coincidan con tu búsqueda o filtro.</p>
-                        <button onclick="app.clearSearch()">Mostrar todas las notas</button>
-                    </div>
-                `;
-            } else {
-                message = `
-                    <div class="empty-state">
-                        <div class="icon">📝</div>
-                        <h3>No hay notas aún</h3>
-                        <p>¡Crea tu primera nota haciendo clic en el botón de arriba!</p>
-                        <button onclick="app.openModal()">+ Crear Mi Primera Nota</button>
-                    </div>
-                `;
-            }
-            container.innerHTML = message;
-            return;
-        }
-
-        container.innerHTML = notesToDisplay.map(note => {
-            const noteType = note.type || 'text';
-            const isVoiceNote = noteType === 'voice' || note.audioUrl;
-            const hasAttachments = note.attachments && note.attachments.length > 0;
-            
-            return `
-                <div class="note ${note.color || 'white'} ${isVoiceNote ? 'voice-note' : ''} ${hasAttachments ? 'file-note' : ''} ${this.isFavorite(note.id) ? 'favorite' : ''}">
-                    ${isVoiceNote ? '<span class="note-type-badge">🎤 Voz</span>' : ''}
-                    ${hasAttachments ? '<span class="note-type-badge">📎 Archivos</span>' : ''}
-                    
-                    <h3>${this.escapeHtml(note.title)}</h3>
-                    <p>${this.escapeHtml(note.content)}</p>
-                    
-                    ${note.imageData ? `
-                        <img src="${note.imageData}" alt="Imagen de la nota" class="note-image" 
-                             onerror="this.style.display='none'">
-                    ` : ''}
-                    
-                    ${note.audioUrl ? `
-                        <div class="voice-player">
-                            <audio controls>
-                                <source src="${note.audioUrl}" type="audio/wav">
-                                Tu navegador no soporta audio.
-                            </audio>
-                        </div>
-                    ` : ''}
-                    
-                    ${note.attachments && note.attachments.length > 0 ? `
-                        <div class="note-attachments">
-                            ${note.attachments.map(att => `
-                                <div class="attachment">
-                                    <div class="attachment-icon">${getFileIcon(att.type, att.extension)}</div>
-                                    <div class="attachment-info">
-                                        <div class="attachment-name">${att.name}</div>
-                                        <div class="attachment-size">${formatFileSize(att.size)}</div>
-                                    </div>
-                                    <a href="${att.url}" download="${att.name}" class="attachment-download">
-                                        📥
-                                    </a>
-                                </div>
-                            `).join('')}
-                        </div>
-                    ` : ''}
-                    
-                    <div class="note-meta">
-                        <small>${formatNoteTimestamp(note.timestamp)}</small>
-                        <small>${this.getColorName(note.color)}</small>
-                    </div>
-                    <div class="note-actions">
-                        <button class="favorite-btn ${this.isFavorite(note.id) ? 'active' : ''}" 
-                                onclick="app.toggleFavorite('${note.id}')">
-                            ${this.isFavorite(note.id) ? '★' : '☆'} Favorita
-                        </button>
-                        <button class="edit-btn" onclick="app.editNote('${note.id}')">✏️ Editar</button>
-                        <button class="delete-btn" onclick="app.deleteNote('${note.id}')">🗑️ Eliminar</button>
-                    </div>
-                </div>
-            `;
-        }).join('');
-    }
-
-    getColorName(color) {
-        const colorNames = {
-            'white': '📄 Blanca',
-            'yellow': '💛 Amarilla', 
-            'pink': '💗 Rosa',
-            'blue': '💙 Azul',
-            'green': '💚 Verde',
-            'purple': '💜 Morada'
-        };
-        return colorNames[color] || '📄 Blanca';
-    }
-
-    clearSearch() {
-        document.getElementById('searchInput').value = '';
-        document.getElementById('categoryFilter').value = 'all';
-        this.searchTerm = '';
-        this.currentCategory = 'all';
-        this.filterNotes();
-    }
-
-    editNote(noteId) {
-        const noteToEdit = this.notes.find(note => note.id === noteId);
-        if (noteToEdit) {
-            this.openModal(noteToEdit);
-        }
-    }
-
-    async deleteNote(noteId) {
-        if (!confirm('¿Estás seguro de que quieres eliminar esta nota?')) {
-            return;
-        }
-
-        try {
-            await db.collection('notes').doc(noteId).delete();
-            console.log('✅ Nota eliminada:', noteId);
-            if (favorites[noteId]) {
-                delete favorites[noteId];
-                localStorage.setItem('noteFavorites', JSON.stringify(favorites));
-            }
-        } catch (error) {
-            console.error('❌ Error eliminando nota:', error);
-            alert('Error eliminando nota: ' + error.message);
-        }
-    }
-
-    escapeHtml(text) {
-        if (!text) return '';
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    }
-}
-
-// Inicializar la aplicación cuando todo esté listo
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('📱 Mis Notas App con Voz y Archivos - Inicializando...');
-    appInstance = new NotesApp();
-    window.app = appInstance;
+    // Iniciar la aplicación
+    init();
 });
-
-console.log('🎉 Mis Notas App con Voz y Archivos - Código cargado');
