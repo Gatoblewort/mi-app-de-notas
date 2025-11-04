@@ -26,108 +26,75 @@
     <link rel="stylesheet" href="style.css">
     <link rel="manifest" href="manifest.json">
 </head>
-<body>
-    <!-- Pantalla de Login -->
-    <div id="loginScreen" class="auth-screen">
-        <div class="auth-container">
-            <div class="auth-header">
+<body class="light-mode">
+    <div class="container">
+        <header>
+            <div class="header-top">
                 <h1>📝 Mis Notas</h1>
-                <p>Inicia sesión en tu cuenta</p>
-            </div>
-            
-            <form id="loginForm" class="auth-form">
-                <input type="email" id="loginEmail" placeholder="Correo electrónico" required>
-                <input type="password" id="loginPassword" placeholder="Contraseña" required>
-                <button type="submit" id="loginBtn">Iniciar Sesión</button>
-            </form>
-            
-            <div class="auth-links">
-                <button type="button" id="showRegisterBtn" class="link-btn">¿No tienes cuenta? Regístrate</button>
-                <button type="button" id="forgotPasswordBtn" class="link-btn">¿Olvidaste tu contraseña?</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Pantalla de Registro -->
-    <div id="registerScreen" class="auth-screen" style="display: none;">
-        <div class="auth-container">
-            <div class="auth-header">
-                <h1>📝 Mis Notas</h1>
-                <p>Crea tu cuenta gratuita</p>
-            </div>
-            
-            <form id="registerForm" class="auth-form">
-                <input type="text" id="registerName" placeholder="Nombre completo" required>
-                <input type="email" id="registerEmail" placeholder="Correo electrónico" required>
-                <input type="password" id="registerPassword" placeholder="Contraseña (mín. 6 caracteres)" required>
-                <button type="submit" id="registerBtn">Crear Cuenta</button>
-            </form>
-            
-            <div class="auth-links">
-                <button type="button" id="showLoginBtn" class="link-btn">¿Ya tienes cuenta? Inicia Sesión</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Pantalla de Recuperación de Contraseña -->
-    <div id="forgotPasswordScreen" class="auth-screen" style="display: none;">
-        <div class="auth-container">
-            <div class="auth-header">
-                <h1>🔐 Recuperar Contraseña</h1>
-                <p>Te enviaremos un enlace para restablecer tu contraseña</p>
-            </div>
-            
-            <form id="forgotPasswordForm" class="auth-form">
-                <input type="email" id="resetEmail" placeholder="Correo electrónico" required>
-                <button type="submit" id="resetPasswordBtn">Enviar Enlace</button>
-            </form>
-            
-            <div class="auth-links">
-                <button type="button" id="backToLoginBtn" class="link-btn">Volver al Login</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- App Principal (se muestra después del login) -->
-    <div id="appScreen" style="display: none;">
-        <div class="container">
-            <header>
-                <div class="user-info">
-                    <h1>📝 Mis Notas</h1>
-                    <div class="user-menu">
-                        <span id="userName">Usuario</span>
-                        <button type="button" id="logoutBtn">Cerrar Sesión</button>
-                    </div>
+                <div class="header-controls">
+                    <button id="themeToggle" class="theme-btn" title="Cambiar tema">🌙</button>
+                    <button id="addNoteBtn">+ Nueva Nota</button>
                 </div>
-                <button type="button" id="addNoteBtn">+ Nueva Nota</button>
-            </header>
-            
-            <div class="notes-container" id="notesContainer">
-                <!-- Las notas se agregarán aquí dinámicamente -->
             </div>
+            
+            <!-- Barra de búsqueda -->
+            <div class="search-container">
+                <input type="text" id="searchInput" placeholder="🔍 Buscar en notas...">
+                <div class="search-filters">
+                    <select id="categoryFilter">
+                        <option value="all">Todas las categorías</option>
+                        <option value="favorites">⭐ Favoritas</option>
+                        <option value="white">📄 Blanca</option>
+                        <option value="yellow">💛 Amarilla</option>
+                        <option value="pink">💗 Rosa</option>
+                        <option value="blue">💙 Azul</option>
+                        <option value="green">💚 Verde</option>
+                        <option value="purple">💜 Morada</option>
+                    </select>
+                    <button id="clearSearch" class="clear-btn">Limpiar</button>
+                </div>
+            </div>
+        </header>
+        
+        <div class="notes-stats">
+            <span id="notesCount">0 notas</span>
+            <span id="favoritesCount">0 favoritas</span>
         </div>
+        
+        <div class="notes-container" id="notesContainer">
+            <!-- Las notas se agregarán aquí dinámicamente -->
+        </div>
+    </div>
 
-        <!-- Modal para crear/editar notas -->
-        <div id="noteModal" class="modal">
-            <div class="modal-content">
-                <span class="close">&times;</span>
-                <h2>Nueva Nota</h2> 
-                
-                <input type="text" id="noteTitle" placeholder="Título de la nota...">
-                <textarea id="noteContent" placeholder="Escribe tu nota aquí..." rows="6"></textarea>
+    <!-- Modal para crear/editar notas -->
+    <div id="noteModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Nueva Nota</h2> 
+            
+            <input type="text" id="noteTitle" placeholder="Título de la nota...">
+            <textarea id="noteContent" placeholder="Escribe tu nota aquí..." rows="6"></textarea>
 
+            <div class="modal-section">
+                <label>Color de la nota:</label>
                 <div class="color-selector">
-                    <span class="color-option active" data-color="white" style="background-color: #ffffff;"></span>
-                    <span class="color-option" data-color="yellow" style="background-color: #fff9a3;"></span>
-                    <span class="color-option" data-color="pink" style="background-color: #ffadb6;"></span>
-                    <span class="color-option" data-color="blue" style="background-color: #a3d2ff;"></span>
-                    <span class="color-option" data-color="green" style="background-color: #b0ffad;"></span>
-                    <span class="color-option" data-color="purple" style="background-color: #e0b0ff;"></span>
+                    <span class="color-option active" data-color="white" style="background-color: #ffffff;" title="Blanca">📄</span>
+                    <span class="color-option" data-color="yellow" style="background-color: #fff9a3;" title="Amarilla">💛</span>
+                    <span class="color-option" data-color="pink" style="background-color: #ffadb6;" title="Rosa">💗</span>
+                    <span class="color-option" data-color="blue" style="background-color: #a3d2ff;" title="Azul">💙</span>
+                    <span class="color-option" data-color="green" style="background-color: #b0ffad;" title="Verde">💚</span>
+                    <span class="color-option" data-color="purple" style="background-color: #e0b0ff;" title="Morada">💜</span>
                 </div>
-                
-                <input type="file" id="noteImage" accept="image/*" style="margin-bottom: 15px;">
-                
-                <button type="button" id="saveNoteBtn">Guardar Nota</button>
+            </div>
+
+            <div class="modal-section">
+                <label for="noteImage">Agregar imagen (opcional):</label>
+                <input type="file" id="noteImage" accept="image/*">
+                <div id="imagePreview" class="image-preview"></div>
+            </div>
+            
+            <div class="modal-actions">
+                <button type="button" id="saveNoteBtn" class="save-btn">💾 Guardar Nota</button>
             </div>
         </div>
     </div>
@@ -135,7 +102,6 @@
     <!-- Firebase -->
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
     <script src="app.js"></script>
 </body>
 </html>
